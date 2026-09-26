@@ -18,7 +18,9 @@ public class BDFR_IronGrid : ModuleRules
             "CoreUObject",
             "Engine",
             "InputCore",
-            "Paper2D"
+            "Paper2D",
+            "Slate",
+            "SlateCore"
         });
     }
 }
