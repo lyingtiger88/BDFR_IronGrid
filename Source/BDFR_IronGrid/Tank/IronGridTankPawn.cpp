@@ -13,37 +13,28 @@ AIronGridTankPawn::AIronGridTankPawn()
     TankRoot = CreateDefaultSubobject<USceneComponent>(TEXT("TankRoot"));
     SetRootComponent(TankRoot);
 
-    // LOGICAL HULL
-    // The actor/TankRoot always uses Unreal's +X as forward.
-    // The sprite's painted direction is corrected independently below.
     HullVisualRoot = CreateDefaultSubobject<USceneComponent>(TEXT("HullVisualRoot"));
     HullVisualRoot->SetupAttachment(TankRoot);
 
     HullSprite = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("HullSprite"));
     HullSprite->SetupAttachment(HullVisualRoot);
 
-    // LOGICAL TURRET
-    // This pivot performs the real 0..360 degree aim rotation.
     TurretPivot = CreateDefaultSubobject<USceneComponent>(TEXT("TurretPivot"));
     TurretPivot->SetupAttachment(TankRoot);
 
-    // VISUAL TURRET
-    // This root compensates only for the PNG's painted forward direction.
-    // It never participates in aim calculations.
     TurretVisualRoot = CreateDefaultSubobject<USceneComponent>(TEXT("TurretVisualRoot"));
     TurretVisualRoot->SetupAttachment(TurretPivot);
 
     TurretSprite = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("TurretSprite"));
     TurretSprite->SetupAttachment(TurretVisualRoot);
 
-    // Muzzle stays on the LOGICAL turret axis (+X).
     Muzzle = CreateDefaultSubobject<USceneComponent>(TEXT("Muzzle"));
     Muzzle->SetupAttachment(TurretPivot);
     Muzzle->SetRelativeLocation(FVector(90.0f, 0.0f, 0.0f));
 
     CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
     CameraBoom->SetupAttachment(TankRoot);
-    CameraBoom->TargetArmLength = 1800.0f;
+    CameraBoom->TargetArmLength = FixedCameraArmLength;
     CameraBoom->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
     CameraBoom->bDoCollisionTest = false;
     CameraBoom->bUsePawnControlRotation = false;
@@ -51,7 +42,7 @@ AIronGridTankPawn::AIronGridTankPawn()
     TopDownCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("TopDownCamera"));
     TopDownCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
     TopDownCamera->ProjectionMode = ECameraProjectionMode::Orthographic;
-    TopDownCamera->OrthoWidth = 2600.0f;
+    TopDownCamera->OrthoWidth = FixedOrthoWidth;
 
     AutoPossessPlayer = EAutoReceiveInput::Player0;
 }
@@ -69,6 +60,9 @@ void AIronGridTankPawn::BeginPlay()
     ApplyVisualRotationOffsets();
 
     DesiredAimWorldPoint = GetActorLocation() + GetActorForwardVector() * 1000.0f;
+    PreviousActorLocation = GetActorLocation();
+
+    ApplyCameraModeImmediate();
 }
 
 void AIronGridTankPawn::ApplyVisualRotationOffsets()
@@ -100,6 +94,7 @@ void AIronGridTankPawn::Tick(float DeltaSeconds)
     }
 
     UpdateTurret(DeltaSeconds);
+    UpdateCamera(DeltaSeconds);
 }
 
 void AIronGridTankPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -108,6 +103,7 @@ void AIronGridTankPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 
     PlayerInputComponent->BindAxis(TEXT("MoveForward"), this, &AIronGridTankPawn::MoveForward);
     PlayerInputComponent->BindAxis(TEXT("TurnHull"), this, &AIronGridTankPawn::TurnHull);
+    PlayerInputComponent->BindAction(TEXT("ToggleCameraMode"), IE_Pressed, this, &AIronGridTankPawn::ToggleCameraMode);
 }
 
 void AIronGridTankPawn::SetDesiredAimPoint(const FVector& WorldPoint)
@@ -126,8 +122,6 @@ FVector AIronGridTankPawn::GetActualGunAimPoint() const
     const float DesiredDistance = FVector::Dist2D(Origin, DesiredAimWorldPoint);
     const float DisplayDistance = FMath::Clamp(DesiredDistance, 100.0f, AimTraceDistance);
 
-    // IMPORTANT:
-    // Use the logical turret pivot, never TurretSprite/TurretVisualRoot.
     FVector ActualDirection = TurretPivot->GetForwardVector();
     ActualDirection.Z = 0.0f;
     ActualDirection.Normalize();
@@ -181,8 +175,6 @@ void AIronGridTankPawn::UpdateTurret(float DeltaSeconds)
         return;
     }
 
-    // Logical turret forward is ALWAYS Unreal +X.
-    // Art corrections are handled by TurretVisualRoot and do not affect this math.
     const float DesiredWorldYaw = ToAim.Rotation().Yaw;
     const float HullWorldYaw = GetActorRotation().Yaw;
     const float TargetLocalYaw =
@@ -196,4 +188,107 @@ void AIronGridTankPawn::UpdateTurret(float DeltaSeconds)
         FMath::FixedTurn(CurrentLocalYaw, TargetLocalYaw, MaxStep);
 
     TurretPivot->SetRelativeRotation(FRotator(0.0f, NewLocalYaw, 0.0f));
+}
+
+void AIronGridTankPawn::SetCameraMode(EIronGridCameraMode NewMode)
+{
+    CameraMode = NewMode;
+    ApplyCameraModeImmediate();
+}
+
+void AIronGridTankPawn::ToggleCameraMode()
+{
+    SetCameraMode(
+        CameraMode == EIronGridCameraMode::Fixed
+            ? EIronGridCameraMode::SpeedReactive
+            : EIronGridCameraMode::Fixed
+    );
+}
+
+void AIronGridTankPawn::ApplyCameraModeImmediate()
+{
+    if (!CameraBoom || !TopDownCamera)
+    {
+        return;
+    }
+
+    float TargetArmLength = FixedCameraArmLength;
+    float TargetOrthoWidth = FixedOrthoWidth;
+
+    if (CameraMode == EIronGridCameraMode::SpeedReactive)
+    {
+        const float SpeedAlpha =
+            FMath::Clamp(CurrentGroundSpeed / FMath::Max(SpeedForMaxCameraZoom, 1.0f), 0.0f, 1.0f);
+
+        TargetArmLength = FMath::Lerp(NearCameraArmLength, FarCameraArmLength, SpeedAlpha);
+        TargetOrthoWidth = FMath::Lerp(NearOrthoWidth, FarOrthoWidth, SpeedAlpha);
+    }
+
+    CameraBoom->TargetArmLength = TargetArmLength;
+
+    if (TopDownCamera->ProjectionMode == ECameraProjectionMode::Orthographic)
+    {
+        TopDownCamera->OrthoWidth = TargetOrthoWidth;
+    }
+}
+
+void AIronGridTankPawn::UpdateCamera(float DeltaSeconds)
+{
+    if (!CameraBoom || !TopDownCamera)
+    {
+        return;
+    }
+
+    // Calculate real ground speed from actual displacement.
+    // This remains valid even before we introduce a custom movement component.
+    const FVector CurrentLocation = GetActorLocation();
+
+    if (DeltaSeconds > KINDA_SMALL_NUMBER)
+    {
+        CurrentGroundSpeed =
+            FVector::Dist2D(CurrentLocation, PreviousActorLocation) / DeltaSeconds;
+    }
+    else
+    {
+        CurrentGroundSpeed = 0.0f;
+    }
+
+    PreviousActorLocation = CurrentLocation;
+
+    float TargetArmLength = FixedCameraArmLength;
+    float TargetOrthoWidth = FixedOrthoWidth;
+
+    if (CameraMode == EIronGridCameraMode::SpeedReactive)
+    {
+        const float SpeedAlpha =
+            FMath::Clamp(CurrentGroundSpeed / FMath::Max(SpeedForMaxCameraZoom, 1.0f), 0.0f, 1.0f);
+
+        TargetArmLength =
+            FMath::Lerp(NearCameraArmLength, FarCameraArmLength, SpeedAlpha);
+
+        TargetOrthoWidth =
+            FMath::Lerp(NearOrthoWidth, FarOrthoWidth, SpeedAlpha);
+    }
+
+    // Perspective cameras physically move along the spring arm.
+    CameraBoom->TargetArmLength =
+        FMath::FInterpTo(
+            CameraBoom->TargetArmLength,
+            TargetArmLength,
+            DeltaSeconds,
+            CameraZoomInterpSpeed
+        );
+
+    // Orthographic cameras do not visually zoom when only the boom length changes,
+    // so change OrthoWidth as well.
+    if (TopDownCamera->ProjectionMode == ECameraProjectionMode::Orthographic)
+    {
+        TopDownCamera->OrthoWidth =
+            FMath::FInterpTo(
+                TopDownCamera->OrthoWidth,
+                TargetOrthoWidth,
+                DeltaSeconds,
+                CameraZoomInterpSpeed
+            );
+    }
 }
