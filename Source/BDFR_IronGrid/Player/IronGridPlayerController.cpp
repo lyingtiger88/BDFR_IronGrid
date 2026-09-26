@@ -77,7 +77,8 @@ void AIronGridPlayerController::OpenPauseMenu()
     bPauseMenuOpen = true;
     bShowMouseCursor = true;
 
-    FInputModeUIOnly InputMode;
+    FInputModeGameAndUI InputMode;
+    InputMode.SetHideCursorDuringCapture(false);
     SetInputMode(InputMode);
 
     // A local prototype may pause the world.
