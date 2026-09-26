@@ -190,6 +190,31 @@ void AIronGridTankPawn::UpdateTurret(float DeltaSeconds)
     TurretPivot->SetRelativeRotation(FRotator(0.0f, NewLocalYaw, 0.0f));
 }
 
+void AIronGridTankPawn::SetCameraResponseSpeed(float NewSpeed)
+{
+    CameraZoomInterpSpeed = FMath::Clamp(NewSpeed, 0.25f, 6.0f);
+}
+
+void AIronGridTankPawn::SetFixedCameraZoom(float NewOrthoWidth)
+{
+    FixedOrthoWidth = FMath::Clamp(NewOrthoWidth, 1200.0f, 6000.0f);
+
+    if (CameraMode == EIronGridCameraMode::Fixed)
+    {
+        ApplyCameraModeImmediate();
+    }
+}
+
+void AIronGridTankPawn::SetDynamicFarCameraZoom(float NewOrthoWidth)
+{
+    FarOrthoWidth = FMath::Clamp(NewOrthoWidth, NearOrthoWidth + 100.0f, 7000.0f);
+
+    if (CameraMode == EIronGridCameraMode::SpeedReactive)
+    {
+        ApplyCameraModeImmediate();
+    }
+}
+
 void AIronGridTankPawn::SetCameraMode(EIronGridCameraMode NewMode)
 {
     CameraMode = NewMode;
