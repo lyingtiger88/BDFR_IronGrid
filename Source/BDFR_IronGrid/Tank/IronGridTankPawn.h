@@ -101,7 +101,7 @@ protected:
     float HullArtYawOffset = -90.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Visual", meta=(ClampMin="-180.0", ClampMax="180.0"))
-    float TurretArtYawOffset = -90.0f;
+    float TurretArtYawOffset = 90.0f;
 
     // --- Camera mode ---
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera")
