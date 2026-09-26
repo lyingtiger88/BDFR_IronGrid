@@ -41,6 +41,8 @@ BDFR_IronGrid/
 ```
 
 ## Project status
-Pre-production / prototype foundation.
+Playable tank prototype / pre-production foundation.
+
+See **[ROADMAP.md](ROADMAP.md)** for completed milestones, current status, and planned development phases.
 
 See `Docs/AimingSystem.md` for the aiming and multi-reticle design.
