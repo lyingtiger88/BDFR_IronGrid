@@ -1,0 +1,19 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "5.8",
+  "Category": "Games",
+  "Description": "IRON GRID: BATTLEGROUND - 64-player open-world tank battle royale.",
+  "Modules": [
+    {
+      "Name": "BDFR_IronGrid",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "Plugins": [
+    {
+      "Name": "Paper2D",
+      "Enabled": true
+    }
+  ]
+}
