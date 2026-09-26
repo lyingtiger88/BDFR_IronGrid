@@ -81,23 +81,22 @@ void AIronGridTankPawn::SetDesiredAimPoint(const FVector& WorldPoint)
 
 FVector AIronGridTankPawn::GetActualGunAimPoint() const
 {
-    if (!Muzzle || !GetWorld())
+    if (!Muzzle || !TurretPivot)
     {
         return GetActorLocation();
     }
 
-    const FVector Start = Muzzle->GetComponentLocation();
-    const FVector End = Start + Muzzle->GetForwardVector() * AimTraceDistance;
+    const FVector Origin = TurretPivot->GetComponentLocation();
+    const float DesiredDistance = FVector::Dist2D(Origin, DesiredAimWorldPoint);
+    const float DisplayDistance = FMath::Clamp(DesiredDistance, 100.0f, AimTraceDistance);
 
-    FHitResult Hit;
-    FCollisionQueryParams Params(SCENE_QUERY_STAT(IronGridGunAim), false, this);
+    FVector ActualDirection = TurretPivot->GetForwardVector();
+    ActualDirection.Z = 0.0f;
+    ActualDirection.Normalize();
 
-    if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
-    {
-        return Hit.ImpactPoint;
-    }
-
-    return End;
+    FVector Point = Origin + ActualDirection * DisplayDistance;
+    Point.Z = DesiredAimWorldPoint.Z;
+    return Point;
 }
 
 float AIronGridTankPawn::GetAimErrorDegrees() const
