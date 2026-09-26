@@ -9,6 +9,13 @@ class UPaperSpriteComponent;
 class USceneComponent;
 class USpringArmComponent;
 
+UENUM(BlueprintType)
+enum class EIronGridCameraMode : uint8
+{
+    Fixed UMETA(DisplayName="Fixed"),
+    SpeedReactive UMETA(DisplayName="Speed Reactive")
+};
+
 UCLASS()
 class BDFR_IRONGRID_API AIronGridTankPawn : public APawn
 {
@@ -36,25 +43,33 @@ public:
     UFUNCTION(BlueprintCallable, Category="IronGrid|Visual")
     void ApplyVisualRotationOffsets();
 
+    UFUNCTION(BlueprintCallable, Category="IronGrid|Camera")
+    void SetCameraMode(EIronGridCameraMode NewMode);
+
+    UFUNCTION(BlueprintCallable, Category="IronGrid|Camera")
+    void ToggleCameraMode();
+
+    UFUNCTION(BlueprintPure, Category="IronGrid|Camera")
+    EIronGridCameraMode GetCameraMode() const { return CameraMode; }
+
+    UFUNCTION(BlueprintPure, Category="IronGrid|Camera")
+    float GetCurrentGroundSpeed() const { return CurrentGroundSpeed; }
+
 protected:
     virtual void BeginPlay() override;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Tank")
     TObjectPtr<USceneComponent> TankRoot;
 
-    // Visual-only yaw correction for hull art.
-    // Keeps gameplay forward (+X) separate from the PNG's painted forward direction.
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Tank")
     TObjectPtr<USceneComponent> HullVisualRoot;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Tank")
     TObjectPtr<UPaperSpriteComponent> HullSprite;
 
-    // Logical turret pivot. This component is the ONLY component rotated by the aiming code.
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Tank")
     TObjectPtr<USceneComponent> TurretPivot;
 
-    // Visual-only yaw correction for turret art.
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Tank")
     TObjectPtr<USceneComponent> TurretVisualRoot;
 
@@ -82,20 +97,56 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Aim", meta=(ClampMin="100.0"))
     float AimTraceDistance = 100000.0f;
 
-    // Source sprites are painted "up" in the PNG while Unreal gameplay forward is +X.
-    // -90 degrees maps image-up (+Y) to Unreal forward (+X).
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Visual", meta=(ClampMin="-180.0", ClampMax="180.0"))
     float HullArtYawOffset = -90.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Visual", meta=(ClampMin="-180.0", ClampMax="180.0"))
     float TurretArtYawOffset = -90.0f;
 
+    // --- Camera mode ---
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera")
+    EIronGridCameraMode CameraMode = EIronGridCameraMode::SpeedReactive;
+
+    // Fixed mode values.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera|Fixed", meta=(ClampMin="100.0"))
+    float FixedCameraArmLength = 1800.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera|Fixed", meta=(ClampMin="100.0"))
+    float FixedOrthoWidth = 2600.0f;
+
+    // Speed-reactive near/far values.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera|Speed Reactive", meta=(ClampMin="100.0"))
+    float NearCameraArmLength = 1500.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera|Speed Reactive", meta=(ClampMin="100.0"))
+    float FarCameraArmLength = 2400.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera|Speed Reactive", meta=(ClampMin="100.0"))
+    float NearOrthoWidth = 2200.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera|Speed Reactive", meta=(ClampMin="100.0"))
+    float FarOrthoWidth = 3600.0f;
+
+    // Ground speed at which the camera reaches the fully zoomed-out setting.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera|Speed Reactive", meta=(ClampMin="1.0"))
+    float SpeedForMaxCameraZoom = 700.0f;
+
+    // Higher values make the zoom react faster.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera", meta=(ClampMin="0.1"))
+    float CameraZoomInterpSpeed = 3.5f;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Camera")
+    float CurrentGroundSpeed = 0.0f;
+
 private:
     void MoveForward(float Value);
     void TurnHull(float Value);
     void UpdateTurret(float DeltaSeconds);
+    void UpdateCamera(float DeltaSeconds);
+    void ApplyCameraModeImmediate();
 
     float MoveInput = 0.0f;
     float TurnInput = 0.0f;
     FVector DesiredAimWorldPoint = FVector::ZeroVector;
+    FVector PreviousActorLocation = FVector::ZeroVector;
 };
