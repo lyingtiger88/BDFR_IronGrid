@@ -1,6 +1,9 @@
 #include "Player/IronGridPlayerController.h"
 
+#include "Engine/Engine.h"
+#include "Engine/GameViewportClient.h"
 #include "Tank/IronGridTankPawn.h"
+#include "UI/IronGridPauseMenu.h"
 
 AIronGridPlayerController::AIronGridPlayerController()
 {
@@ -18,18 +21,113 @@ void AIronGridPlayerController::BeginPlay()
     SetInputMode(InputMode);
 }
 
+void AIronGridPlayerController::SetupInputComponent()
+{
+    Super::SetupInputComponent();
+
+    if (InputComponent)
+    {
+        FInputActionBinding& PauseBinding =
+            InputComponent->BindAction(
+                TEXT("TogglePauseMenu"),
+                IE_Pressed,
+                this,
+                &AIronGridPlayerController::TogglePauseMenu);
+
+        PauseBinding.bExecuteWhenPaused = true;
+    }
+}
+
+AIronGridTankPawn* AIronGridPlayerController::GetIronGridTank() const
+{
+    return Cast<AIronGridTankPawn>(GetPawn());
+}
+
+void AIronGridPlayerController::TogglePauseMenu()
+{
+    if (bPauseMenuOpen)
+    {
+        ClosePauseMenu();
+    }
+    else
+    {
+        OpenPauseMenu();
+    }
+}
+
+void AIronGridPlayerController::OpenPauseMenu()
+{
+    if (bPauseMenuOpen || !IsLocalController())
+    {
+        return;
+    }
+
+    if (!PauseMenuWidget.IsValid())
+    {
+        PauseMenuWidget =
+            SNew(SIronGridPauseMenu)
+            .OwnerController(this);
+    }
+
+    if (GEngine && GEngine->GameViewport && PauseMenuWidget.IsValid())
+    {
+        GEngine->GameViewport->AddViewportWidgetContent(PauseMenuWidget.ToSharedRef(), 1000);
+    }
+
+    bPauseMenuOpen = true;
+    bShowMouseCursor = true;
+
+    FInputModeUIOnly InputMode;
+    SetInputMode(InputMode);
+
+    // A local prototype may pause the world.
+    // In multiplayer, opening the menu must never pause the authoritative server.
+    if (GetNetMode() == NM_Standalone)
+    {
+        SetPause(true);
+    }
+}
+
+void AIronGridPlayerController::ClosePauseMenu()
+{
+    if (!bPauseMenuOpen)
+    {
+        return;
+    }
+
+    if (GEngine && GEngine->GameViewport && PauseMenuWidget.IsValid())
+    {
+        GEngine->GameViewport->RemoveViewportWidgetContent(PauseMenuWidget.ToSharedRef());
+    }
+
+    if (GetNetMode() == NM_Standalone)
+    {
+        SetPause(false);
+    }
+
+    bPauseMenuOpen = false;
+    bShowMouseCursor = true;
+
+    FInputModeGameAndUI InputMode;
+    InputMode.SetHideCursorDuringCapture(false);
+    SetInputMode(InputMode);
+}
+
 void AIronGridPlayerController::PlayerTick(float DeltaTime)
 {
     Super::PlayerTick(DeltaTime);
 
-    AIronGridTankPawn* Tank = Cast<AIronGridTankPawn>(GetPawn());
+    if (bPauseMenuOpen)
+    {
+        return;
+    }
+
+    AIronGridTankPawn* Tank = GetIronGridTank();
     if (!Tank)
     {
         return;
     }
 
-    // Prefer the actual world surface below the cursor.
-    // This is more reliable than assuming the battlefield is always at Z = 0.
     FHitResult CursorHit;
     if (GetHitResultUnderCursor(ECC_Visibility, false, CursorHit) && CursorHit.bBlockingHit)
     {
@@ -37,7 +135,6 @@ void AIronGridPlayerController::PlayerTick(float DeltaTime)
         return;
     }
 
-    // Fallback for empty space: project the cursor ray onto a flat aiming plane.
     FVector WorldOrigin;
     FVector WorldDirection;
     if (!DeprojectMousePositionToWorld(WorldOrigin, WorldDirection))
