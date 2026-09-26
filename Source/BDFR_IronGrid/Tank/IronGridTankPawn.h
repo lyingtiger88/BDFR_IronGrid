@@ -55,6 +55,24 @@ public:
     UFUNCTION(BlueprintPure, Category="IronGrid|Camera")
     float GetCurrentGroundSpeed() const { return CurrentGroundSpeed; }
 
+    UFUNCTION(BlueprintCallable, Category="IronGrid|Camera")
+    void SetCameraResponseSpeed(float NewSpeed);
+
+    UFUNCTION(BlueprintPure, Category="IronGrid|Camera")
+    float GetCameraResponseSpeed() const { return CameraZoomInterpSpeed; }
+
+    UFUNCTION(BlueprintCallable, Category="IronGrid|Camera")
+    void SetFixedCameraZoom(float NewOrthoWidth);
+
+    UFUNCTION(BlueprintPure, Category="IronGrid|Camera")
+    float GetFixedCameraZoom() const { return FixedOrthoWidth; }
+
+    UFUNCTION(BlueprintCallable, Category="IronGrid|Camera")
+    void SetDynamicFarCameraZoom(float NewOrthoWidth);
+
+    UFUNCTION(BlueprintPure, Category="IronGrid|Camera")
+    float GetDynamicFarCameraZoom() const { return FarOrthoWidth; }
+
 protected:
     virtual void BeginPlay() override;
 
@@ -133,7 +151,7 @@ protected:
 
     // Higher values make the zoom react faster.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera", meta=(ClampMin="0.1"))
-    float CameraZoomInterpSpeed = 3.5f;
+    float CameraZoomInterpSpeed = 1.5f;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Camera")
     float CurrentGroundSpeed = 0.0f;
