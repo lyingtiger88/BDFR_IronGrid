@@ -28,6 +28,16 @@ void AIronGridPlayerController::PlayerTick(float DeltaTime)
         return;
     }
 
+    // Prefer the actual world surface below the cursor.
+    // This is more reliable than assuming the battlefield is always at Z = 0.
+    FHitResult CursorHit;
+    if (GetHitResultUnderCursor(ECC_Visibility, false, CursorHit) && CursorHit.bBlockingHit)
+    {
+        Tank->SetDesiredAimPoint(CursorHit.ImpactPoint);
+        return;
+    }
+
+    // Fallback for empty space: project the cursor ray onto a flat aiming plane.
     FVector WorldOrigin;
     FVector WorldDirection;
     if (!DeprojectMousePositionToWorld(WorldOrigin, WorldDirection))
