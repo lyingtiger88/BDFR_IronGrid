@@ -2,6 +2,7 @@
 
 #include "Camera/CameraComponent.h"
 #include "Components/SceneComponent.h"
+#include "Components/InputComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "PaperSpriteComponent.h"
