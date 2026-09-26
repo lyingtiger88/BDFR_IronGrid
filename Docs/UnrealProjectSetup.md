@@ -35,3 +35,13 @@ The turret art should point consistently along its local forward direction. Unre
 - Armor and module damage.
 - Sprite-based reticle textures replacing debug cross rendering.
 - Dedicated server target and 64-player relevancy strategy.
+
+## Turret visual orientation
+For the current IronGrid turret art, use:
+
+```
+HullArtYawOffset   = -90
+TurretArtYawOffset = +90
+```
+
+This keeps the logical turret forward axis aligned with mouse aim while correcting the artwork's painted direction.
