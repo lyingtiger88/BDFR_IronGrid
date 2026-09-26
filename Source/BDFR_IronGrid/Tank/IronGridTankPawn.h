@@ -19,6 +19,7 @@ public:
 
     virtual void Tick(float DeltaSeconds) override;
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+    virtual void OnConstruction(const FTransform& Transform) override;
 
     UFUNCTION(BlueprintCallable, Category="IronGrid|Aim")
     void SetDesiredAimPoint(const FVector& WorldPoint);
@@ -32,17 +33,30 @@ public:
     UFUNCTION(BlueprintPure, Category="IronGrid|Aim")
     float GetAimErrorDegrees() const;
 
+    UFUNCTION(BlueprintCallable, Category="IronGrid|Visual")
+    void ApplyVisualRotationOffsets();
+
 protected:
     virtual void BeginPlay() override;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Tank")
     TObjectPtr<USceneComponent> TankRoot;
 
+    // Visual-only yaw correction for hull art.
+    // Keeps gameplay forward (+X) separate from the PNG's painted forward direction.
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Tank")
+    TObjectPtr<USceneComponent> HullVisualRoot;
+
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Tank")
     TObjectPtr<UPaperSpriteComponent> HullSprite;
 
+    // Logical turret pivot. This component is the ONLY component rotated by the aiming code.
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Tank")
     TObjectPtr<USceneComponent> TurretPivot;
+
+    // Visual-only yaw correction for turret art.
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Tank")
+    TObjectPtr<USceneComponent> TurretVisualRoot;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Tank")
     TObjectPtr<UPaperSpriteComponent> TurretSprite;
@@ -67,6 +81,14 @@ protected:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Aim", meta=(ClampMin="100.0"))
     float AimTraceDistance = 100000.0f;
+
+    // Source sprites are painted "up" in the PNG while Unreal gameplay forward is +X.
+    // -90 degrees maps image-up (+Y) to Unreal forward (+X).
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Visual", meta=(ClampMin="-180.0", ClampMax="180.0"))
+    float HullArtYawOffset = -90.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Visual", meta=(ClampMin="-180.0", ClampMax="180.0"))
+    float TurretArtYawOffset = -90.0f;
 
 private:
     void MoveForward(float Value);
