@@ -55,6 +55,18 @@ public:
     UFUNCTION(BlueprintPure, Category="IronGrid|Camera")
     float GetCurrentGroundSpeed() const { return CurrentGroundSpeed; }
 
+    UFUNCTION(BlueprintPure, Category="IronGrid|Movement")
+    float GetCurrentForwardSpeed() const { return CurrentForwardSpeed; }
+
+    UFUNCTION(BlueprintPure, Category="IronGrid|Movement")
+    float GetLeftTrackSpeed() const { return CurrentLeftTrackSpeed; }
+
+    UFUNCTION(BlueprintPure, Category="IronGrid|Movement")
+    float GetRightTrackSpeed() const { return CurrentRightTrackSpeed; }
+
+    UFUNCTION(BlueprintPure, Category="IronGrid|Movement")
+    bool IsBraking() const { return bBrakeHeld; }
+
     UFUNCTION(BlueprintCallable, Category="IronGrid|Camera")
     void SetCameraResponseSpeed(float NewSpeed);
 
@@ -103,11 +115,59 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Camera")
     TObjectPtr<UCameraComponent> TopDownCamera;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Movement", meta=(ClampMin="0.0"))
+    // Maximum forward track speed in Unreal units per second.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Movement|Tracked", meta=(ClampMin="0.0"))
     float MaxMoveSpeed = 700.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Movement", meta=(ClampMin="0.0"))
+    // Reverse is intentionally slower than forward movement.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Movement|Tracked", meta=(ClampMin="0.0"))
+    float MaxReverseSpeed = 360.0f;
+
+    // Maximum hull yaw rate. Differential-track math is clamped to this value.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Movement|Tracked", meta=(ClampMin="0.0"))
     float HullTurnSpeed = 90.0f;
+
+    // Distance between left and right track centerlines.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Movement|Tracked", meta=(ClampMin="10.0"))
+    float TrackSeparation = 260.0f;
+
+    // Track-speed change rates.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Movement|Tracked", meta=(ClampMin="1.0"))
+    float TrackAcceleration = 420.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Movement|Tracked", meta=(ClampMin="1.0"))
+    float TrackDeceleration = 300.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Movement|Tracked", meta=(ClampMin="1.0"))
+    float BrakeDeceleration = 1050.0f;
+
+    // Differential steering authority while moving.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Movement|Tracked", meta=(ClampMin="0.0", ClampMax="1.0"))
+    float MovingSteeringStrength = 0.62f;
+
+    // Steering authority retained at maximum speed.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Movement|Tracked", meta=(ClampMin="0.0", ClampMax="1.0"))
+    float HighSpeedSteeringScale = 0.48f;
+
+    // Opposite track speed used for neutral / pivot steering.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Movement|Tracked", meta=(ClampMin="0.0"))
+    float PivotTrackSpeed = 245.0f;
+
+    // Damp track speeds after hitting a blocking object.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Movement|Tracked", meta=(ClampMin="0.0", ClampMax="1.0"))
+    float CollisionSpeedRetention = 0.18f;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Movement|Runtime")
+    float CurrentLeftTrackSpeed = 0.0f;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Movement|Runtime")
+    float CurrentRightTrackSpeed = 0.0f;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Movement|Runtime")
+    float CurrentForwardSpeed = 0.0f;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Movement|Runtime")
+    bool bBrakeHeld = false;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Aim", meta=(ClampMin="0.0"))
     float TurretTraverseSpeed = 55.0f;
@@ -159,6 +219,10 @@ protected:
 private:
     void MoveForward(float Value);
     void TurnHull(float Value);
+    void BrakePressed();
+    void BrakeReleased();
+    void UpdateTrackedMovement(float DeltaSeconds);
+    float MoveTrackSpeedToward(float CurrentSpeed, float TargetSpeed, float DeltaSeconds) const;
     void UpdateTurret(float DeltaSeconds);
     void UpdateCamera(float DeltaSeconds);
     void ApplyCameraModeImmediate();
