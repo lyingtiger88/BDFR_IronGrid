@@ -27,14 +27,14 @@ The repository currently includes:
 - Corrected visual rotation pipeline for 2D tank art
 - Smooth 360-degree turret tracking
 - Desired aim vs actual gun aim reticles
-- Basic W/S movement and A/D hull turning
+- Tracked Movement v2 with acceleration, braking, independent track speeds, differential steering, and pivot turns
 - Fixed and Speed Reactive camera modes
 - Runtime camera settings
 - Pause menu on **P**
 - Camera controls inside the pause menu
 - Multiplayer-safe pause-menu behavior
 
-The next major milestone is **Tank Movement v2**, followed by **Weapons & Ballistics**, then **Network Replication**.
+The next major milestone is **Weapons & Ballistics**, followed by **Armor & Damage**, then **Network Replication**.
 
 ---
 
@@ -100,17 +100,17 @@ The next major milestone is **Tank Movement v2**, followed by **Weapons & Ballis
 - [x] W / S forward and reverse prototype movement
 - [x] A / D hull turning
 - [~] Collision-aware actor movement
-- [ ] Acceleration and deceleration
-- [ ] Braking model
-- [ ] Independent left/right tracks
-- [ ] Differential steering
-- [ ] Neutral steering / pivot turn
+- [x] Acceleration and deceleration
+- [x] Braking model
+- [x] Independent left/right track speeds
+- [x] Differential steering
+- [x] Neutral steering / pivot turn
 - [ ] Engine torque
 - [ ] Transmission / gears
 - [ ] Surface-dependent traction
 - [ ] Track damage affecting mobility
 
-**Status:** Basic movement playable; advanced tracked-vehicle movement is next.
+**Status:** Tracked Movement v2 functional; torque, transmission, terrain traction, and damaged-track behavior remain planned.
 
 </details>
 
@@ -395,40 +395,34 @@ The next major milestone is **Tank Movement v2**, followed by **Weapons & Ballis
 
 ## Recommended next development order
 
-1. **Tank Movement v2**
-   - acceleration
-   - braking
-   - differential tracks
-   - neutral steering
-
-2. **Weapon Prototype**
+1. **Weapon Prototype**
    - fire
    - projectile
    - reload
    - muzzle FX
    - shell impact
 
-3. **Ballistics & Damage**
+2. **Ballistics & Damage**
    - shell drop
    - penetration
    - armor
    - modules
 
-4. **Replication Prototype**
+3. **Replication Prototype**
    - two-player dedicated-server test
    - movement
    - turret
    - firing
    - damage
 
-5. **Battle Royale Vertical Slice**
+4. **Battle Royale Vertical Slice**
    - small test map
    - 8–16 players first
    - safe zone
    - elimination
    - winner state
 
-6. **Scale toward 64 players**
+5. **Scale toward 64 players**
    - relevancy
    - optimization
    - larger world
@@ -467,4 +461,5 @@ BDFR_IronGrid/
 └── Source/
 ```
 
-See `Docs/AimingSystem.md` for the detailed aiming and multi-reticle design.
+See `Docs/AimingSystem.md` for the detailed aiming and multi-reticle design.  
+See `Docs/MovementSystem.md` for the Tracked Movement v2 model and tuning parameters.
