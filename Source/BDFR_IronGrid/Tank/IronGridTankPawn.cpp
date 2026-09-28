@@ -82,17 +82,7 @@ void AIronGridTankPawn::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
 
-    if (!FMath::IsNearlyZero(TurnInput))
-    {
-        AddActorLocalRotation(FRotator(0.0f, TurnInput * HullTurnSpeed * DeltaSeconds, 0.0f));
-    }
-
-    if (!FMath::IsNearlyZero(MoveInput))
-    {
-        const FVector Delta = GetActorForwardVector() * MoveInput * MaxMoveSpeed * DeltaSeconds;
-        AddActorWorldOffset(Delta, true);
-    }
-
+    UpdateTrackedMovement(DeltaSeconds);
     UpdateTurret(DeltaSeconds);
     UpdateCamera(DeltaSeconds);
 }
@@ -103,6 +93,8 @@ void AIronGridTankPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 
     PlayerInputComponent->BindAxis(TEXT("MoveForward"), this, &AIronGridTankPawn::MoveForward);
     PlayerInputComponent->BindAxis(TEXT("TurnHull"), this, &AIronGridTankPawn::TurnHull);
+    PlayerInputComponent->BindAction(TEXT("Brake"), IE_Pressed, this, &AIronGridTankPawn::BrakePressed);
+    PlayerInputComponent->BindAction(TEXT("Brake"), IE_Released, this, &AIronGridTankPawn::BrakeReleased);
     PlayerInputComponent->BindAction(TEXT("ToggleCameraMode"), IE_Pressed, this, &AIronGridTankPawn::ToggleCameraMode);
 }
 
@@ -158,6 +150,191 @@ void AIronGridTankPawn::MoveForward(float Value)
 void AIronGridTankPawn::TurnHull(float Value)
 {
     TurnInput = FMath::Clamp(Value, -1.0f, 1.0f);
+}
+
+void AIronGridTankPawn::BrakePressed()
+{
+    bBrakeHeld = true;
+}
+
+void AIronGridTankPawn::BrakeReleased()
+{
+    bBrakeHeld = false;
+}
+
+float AIronGridTankPawn::MoveTrackSpeedToward(
+    float CurrentSpeed,
+    float TargetSpeed,
+    float DeltaSeconds) const
+{
+    float ChangeRate = TrackDeceleration;
+
+    if (bBrakeHeld)
+    {
+        TargetSpeed = 0.0f;
+        ChangeRate = BrakeDeceleration;
+    }
+    else
+    {
+        const bool bSameDirection =
+            FMath::IsNearlyZero(CurrentSpeed) ||
+            FMath::Sign(CurrentSpeed) == FMath::Sign(TargetSpeed);
+
+        const bool bAccelerating =
+            bSameDirection &&
+            FMath::Abs(TargetSpeed) > FMath::Abs(CurrentSpeed);
+
+        if (bAccelerating)
+        {
+            ChangeRate = TrackAcceleration;
+        }
+        else if (!bSameDirection && !FMath::IsNearlyZero(TargetSpeed))
+        {
+            // Direction changes should first shed momentum quickly.
+            ChangeRate = BrakeDeceleration;
+        }
+    }
+
+    return FMath::FInterpConstantTo(
+        CurrentSpeed,
+        TargetSpeed,
+        DeltaSeconds,
+        ChangeRate);
+}
+
+void AIronGridTankPawn::UpdateTrackedMovement(float DeltaSeconds)
+{
+    if (DeltaSeconds <= KINDA_SMALL_NUMBER)
+    {
+        return;
+    }
+
+    const float Throttle = FMath::Clamp(MoveInput, -1.0f, 1.0f);
+    const float Steering = FMath::Clamp(TurnInput, -1.0f, 1.0f);
+
+    float DesiredLeftTrackSpeed = 0.0f;
+    float DesiredRightTrackSpeed = 0.0f;
+
+    const bool bPivotTurn =
+        FMath::Abs(Throttle) < 0.05f &&
+        FMath::Abs(Steering) > 0.05f &&
+        !bBrakeHeld;
+
+    if (bPivotTurn)
+    {
+        // Neutral steering: tracks run in opposite directions.
+        // Positive steering produces positive Unreal yaw.
+        DesiredLeftTrackSpeed = Steering * PivotTrackSpeed;
+        DesiredRightTrackSpeed = -Steering * PivotTrackSpeed;
+    }
+    else if (!bBrakeHeld)
+    {
+        const float BaseTrackSpeed =
+            Throttle >= 0.0f
+                ? Throttle * MaxMoveSpeed
+                : Throttle * MaxReverseSpeed;
+
+        const float SpeedReference =
+            FMath::Max(MaxMoveSpeed, 1.0f);
+
+        const float SpeedAlpha =
+            FMath::Clamp(
+                FMath::Abs(CurrentForwardSpeed) / SpeedReference,
+                0.0f,
+                1.0f);
+
+        const float SteeringScale =
+            FMath::Lerp(
+                1.0f,
+                HighSpeedSteeringScale,
+                SpeedAlpha);
+
+        const float SteeringDifferential =
+            Steering *
+            MaxMoveSpeed *
+            MovingSteeringStrength *
+            SteeringScale;
+
+        DesiredLeftTrackSpeed =
+            BaseTrackSpeed + SteeringDifferential;
+
+        DesiredRightTrackSpeed =
+            BaseTrackSpeed - SteeringDifferential;
+
+        DesiredLeftTrackSpeed =
+            FMath::Clamp(
+                DesiredLeftTrackSpeed,
+                -MaxReverseSpeed,
+                MaxMoveSpeed);
+
+        DesiredRightTrackSpeed =
+            FMath::Clamp(
+                DesiredRightTrackSpeed,
+                -MaxReverseSpeed,
+                MaxMoveSpeed);
+    }
+
+    CurrentLeftTrackSpeed =
+        MoveTrackSpeedToward(
+            CurrentLeftTrackSpeed,
+            DesiredLeftTrackSpeed,
+            DeltaSeconds);
+
+    CurrentRightTrackSpeed =
+        MoveTrackSpeedToward(
+            CurrentRightTrackSpeed,
+            DesiredRightTrackSpeed,
+            DeltaSeconds);
+
+    CurrentForwardSpeed =
+        0.5f * (CurrentLeftTrackSpeed + CurrentRightTrackSpeed);
+
+    // UE uses +X as forward and +Y as right.
+    // With left track at -Y and right track at +Y, positive Unreal yaw
+    // corresponds to the left track moving faster than the right track.
+    const float SafeTrackSeparation =
+        FMath::Max(TrackSeparation, 10.0f);
+
+    const float YawRateRadians =
+        (CurrentLeftTrackSpeed - CurrentRightTrackSpeed) /
+        SafeTrackSeparation;
+
+    const float UnclampedYawRateDegrees =
+        FMath::RadiansToDegrees(YawRateRadians);
+
+    const float YawRateDegrees =
+        FMath::Clamp(
+            UnclampedYawRateDegrees,
+            -HullTurnSpeed,
+            HullTurnSpeed);
+
+    if (!FMath::IsNearlyZero(YawRateDegrees))
+    {
+        AddActorLocalRotation(
+            FRotator(
+                0.0f,
+                YawRateDegrees * DeltaSeconds,
+                0.0f));
+    }
+
+    if (!FMath::IsNearlyZero(CurrentForwardSpeed))
+    {
+        const FVector Delta =
+            GetActorForwardVector() *
+            CurrentForwardSpeed *
+            DeltaSeconds;
+
+        FHitResult Hit;
+        AddActorWorldOffset(Delta, true, &Hit);
+
+        if (Hit.bBlockingHit)
+        {
+            CurrentLeftTrackSpeed *= CollisionSpeedRetention;
+            CurrentRightTrackSpeed *= CollisionSpeedRetention;
+            CurrentForwardSpeed =
+                0.5f * (CurrentLeftTrackSpeed + CurrentRightTrackSpeed);
+        }
+    }
 }
 
 void AIronGridTankPawn::UpdateTurret(float DeltaSeconds)
