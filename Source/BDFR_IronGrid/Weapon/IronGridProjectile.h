@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "IronGridProjectile.generated.h"
 
+class UPaperSpriteComponent;
 class USphereComponent;
 class UStaticMeshComponent;
 class UProjectileMovementComponent;
@@ -35,8 +36,12 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Projectile")
     TObjectPtr<UProjectileMovementComponent> ProjectileMovement;
 
+    // Production-facing sprite visual. Assign a PaperSprite in a Blueprint child.
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Projectile|Visual")
+    TObjectPtr<UPaperSpriteComponent> ProjectileSprite;
+
     // Temporary visible shell used until final sprite/tracer art is assigned.
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Projectile")
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Projectile|Debug")
     TObjectPtr<UStaticMeshComponent> DebugVisual;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Projectile", meta=(ClampMin="0.0"))
@@ -54,11 +59,20 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Projectile|Debug")
     bool bShowDebugTrail = true;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Projectile|Debug")
+    bool bShowDebugImpactFX = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Projectile|Debug")
+    bool bHideDebugVisualWhenSpriteAssigned = true;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Projectile|Debug", meta=(ClampMin="0.01"))
     float DebugTrailDuration = 0.20f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Projectile|Debug", meta=(ClampMin="1.0"))
     float DebugMarkerRadius = 14.0f;
+
+    UFUNCTION(BlueprintImplementableEvent, Category="IronGrid|Projectile|FX")
+    void OnProjectileLaunched();
 
     UFUNCTION(BlueprintImplementableEvent, Category="IronGrid|Projectile|FX")
     void OnImpactFX(FVector ImpactPoint, FVector ImpactNormal);
