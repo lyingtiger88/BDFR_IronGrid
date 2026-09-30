@@ -3,6 +3,7 @@
 #include "Camera/CameraComponent.h"
 #include "Components/InputComponent.h"
 #include "Components/SceneComponent.h"
+#include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -258,7 +259,7 @@ void AIronGridTankPawn::ServerReloadWeapon_Implementation()
 
 void AIronGridTankPawn::PerformFire()
 {
-    if (!GetWorld() || !Muzzle || !ProjectileClass || bReloading)
+    if (!GetWorld() || !Muzzle || bReloading)
     {
         return;
     }
@@ -289,17 +290,45 @@ void AIronGridTankPawn::PerformFire()
     SpawnParams.SpawnCollisionHandlingOverride =
         ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
+    // Blueprint may explicitly have ProjectileClass set to None.
+    // Always fall back to the native test projectile so firing remains testable.
+    TSubclassOf<AIronGridProjectile> ClassToSpawn =
+        ProjectileClass
+            ? ProjectileClass
+            : AIronGridProjectile::StaticClass();
+
     AIronGridProjectile* Projectile =
         GetWorld()->SpawnActor<AIronGridProjectile>(
-            ProjectileClass,
+            ClassToSpawn,
             SpawnLocation,
             SpawnRotation,
             SpawnParams);
 
     if (!Projectile)
     {
+#if !(UE_BUILD_SHIPPING)
+        if (GEngine)
+        {
+            GEngine->AddOnScreenDebugMessage(
+                -1,
+                2.0f,
+                FColor::Red,
+                TEXT("IRON GRID: PROJECTILE SPAWN FAILED"));
+        }
+#endif
         return;
     }
+
+#if !(UE_BUILD_SHIPPING)
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(
+            -1,
+            1.0f,
+            FColor::Green,
+            TEXT("IRON GRID: SHELL FIRED"));
+    }
+#endif
 
     Projectile->InitializeProjectile(
         MuzzleVelocity,
