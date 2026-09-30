@@ -469,3 +469,7 @@ BDFR_IronGrid/
 See `Docs/AimingSystem.md` for the detailed aiming and multi-reticle design.  
 See `Docs/MovementSystem.md` for the Tracked Movement v2 model and tuning parameters.  
 See `Docs/WeaponSystem.md` for cannon firing, reload, projectile, and ballistic prediction details.
+
+## Build troubleshooting
+
+If MSVC reports C3859, C1076, or C1060 while creating Unreal PCH files, see `Docs/LowMemoryBuild.md` and use `Scripts/Build-LowMemory.ps1` to reduce parallel compiler memory pressure.
