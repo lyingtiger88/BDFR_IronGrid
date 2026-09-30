@@ -3,6 +3,7 @@
 #include "Camera/CameraComponent.h"
 #include "Components/InputComponent.h"
 #include "Components/SceneComponent.h"
+#include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -97,6 +98,7 @@ void AIronGridTankPawn::ApplyVisualRotationOffsets()
     if (TurretVisualRoot)
     {
         TurretVisualRoot->SetRelativeRotation(FRotator(0.0f, TurretArtYawOffset, 0.0f));
+        TurretVisualRoot->SetRelativeLocation(FVector(-CurrentRecoilOffset, 0.0f, 0.0f));
     }
 }
 
@@ -106,6 +108,7 @@ void AIronGridTankPawn::Tick(float DeltaSeconds)
 
     UpdateTrackedMovement(DeltaSeconds);
     UpdateTurret(DeltaSeconds);
+    UpdateWeaponFeedback(DeltaSeconds);
     UpdateCamera(DeltaSeconds);
 }
 
@@ -390,7 +393,66 @@ void AIronGridTankPawn::CompleteReload()
 
 void AIronGridTankPawn::MulticastMuzzleFX_Implementation()
 {
+    CurrentRecoilOffset = RecoilDistance;
+    CurrentCameraRecoil = FMath::Max(CurrentCameraRecoil, CameraRecoilKick);
+
+#if !(UE_BUILD_SHIPPING)
+    if (bShowDebugMuzzleFX &&
+        Muzzle &&
+        GetWorld() &&
+        GetNetMode() != NM_DedicatedServer)
+    {
+        const FVector MuzzleLocation = Muzzle->GetComponentLocation();
+        const FVector MuzzleForward = Muzzle->GetForwardVector();
+
+        DrawDebugSphere(
+            GetWorld(),
+            MuzzleLocation,
+            30.0f,
+            12,
+            FColor::Yellow,
+            false,
+            DebugMuzzleFXDuration,
+            0,
+            3.0f);
+
+        DrawDebugDirectionalArrow(
+            GetWorld(),
+            MuzzleLocation,
+            MuzzleLocation + MuzzleForward * 140.0f,
+            35.0f,
+            FColor::Orange,
+            false,
+            DebugMuzzleFXDuration,
+            0,
+            5.0f);
+    }
+#endif
+
     OnWeaponFired();
+}
+
+void AIronGridTankPawn::UpdateWeaponFeedback(float DeltaSeconds)
+{
+    CurrentRecoilOffset =
+        FMath::FInterpConstantTo(
+            CurrentRecoilOffset,
+            0.0f,
+            DeltaSeconds,
+            RecoilReturnSpeed);
+
+    CurrentCameraRecoil =
+        FMath::FInterpTo(
+            CurrentCameraRecoil,
+            0.0f,
+            DeltaSeconds,
+            CameraRecoilReturnSpeed);
+
+    if (TurretVisualRoot)
+    {
+        TurretVisualRoot->SetRelativeLocation(
+            FVector(-CurrentRecoilOffset, 0.0f, 0.0f));
+    }
 }
 
 void AIronGridTankPawn::MoveForward(float Value)
@@ -723,7 +785,10 @@ void AIronGridTankPawn::UpdateCamera(float DeltaSeconds)
             FMath::Lerp(NearOrthoWidth, FarOrthoWidth, SpeedAlpha);
     }
 
-    // Perspective cameras physically move along the spring arm.
+    // Add a small fire pulse. Perspective cameras physically move along the spring arm.
+    TargetArmLength += CurrentCameraRecoil * 0.35f;
+    TargetOrthoWidth += CurrentCameraRecoil;
+
     CameraBoom->TargetArmLength =
         FMath::FInterpTo(
             CameraBoom->TargetArmLength,
