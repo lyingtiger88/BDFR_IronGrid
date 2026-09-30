@@ -8,6 +8,7 @@
 #include "GameFramework/DamageType.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "PaperSpriteComponent.h"
 #include "UObject/ConstructorHelpers.h"
 
 AIronGridProjectile::AIronGridProjectile()
@@ -27,6 +28,11 @@ AIronGridProjectile::AIronGridProjectile()
     Collision->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
     Collision->SetNotifyRigidBodyCollision(true);
     Collision->OnComponentHit.AddDynamic(this, &AIronGridProjectile::HandleProjectileHit);
+
+    ProjectileSprite = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("ProjectileSprite"));
+    ProjectileSprite->SetupAttachment(Collision);
+    ProjectileSprite->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    ProjectileSprite->SetCastShadow(false);
 
     DebugVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DebugVisual"));
     DebugVisual->SetupAttachment(Collision);
@@ -59,6 +65,16 @@ void AIronGridProjectile::BeginPlay()
 
     SetLifeSpan(ProjectileLifeSeconds);
     PreviousDebugLocation = GetActorLocation();
+
+    if (bHideDebugVisualWhenSpriteAssigned &&
+        ProjectileSprite &&
+        ProjectileSprite->GetSprite() != nullptr &&
+        DebugVisual)
+    {
+        DebugVisual->SetVisibility(false, true);
+    }
+
+    OnProjectileLaunched();
 
     if (AActor* ProjectileOwner = GetOwner())
     {
@@ -153,5 +169,34 @@ void AIronGridProjectile::MulticastImpactFX_Implementation(
     FVector ImpactPoint,
     FVector ImpactNormal)
 {
+#if !(UE_BUILD_SHIPPING)
+    if (bShowDebugImpactFX &&
+        GetWorld() &&
+        GetNetMode() != NM_DedicatedServer)
+    {
+        DrawDebugSphere(
+            GetWorld(),
+            ImpactPoint,
+            28.0f,
+            12,
+            FColor::Red,
+            false,
+            0.35f,
+            0,
+            3.0f);
+
+        DrawDebugDirectionalArrow(
+            GetWorld(),
+            ImpactPoint,
+            ImpactPoint + ImpactNormal * 90.0f,
+            24.0f,
+            FColor::Orange,
+            false,
+            0.35f,
+            0,
+            3.0f);
+    }
+#endif
+
     OnImpactFX(ImpactPoint, ImpactNormal);
 }
