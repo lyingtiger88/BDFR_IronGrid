@@ -99,28 +99,7 @@ void AIronGridTankPawn::BeginPlay()
         bReloading = false;
     }
 
-    if (EngineAudioComponent && EngineLoopSound)
-    {
-        EngineAudioComponent->SetSound(EngineLoopSound);
-        EngineAudioComponent->SetVolumeMultiplier(EngineVolume);
-        EngineAudioComponent->SetPitchMultiplier(EngineIdlePitch);
-        EngineAudioComponent->Play();
-    }
-
-    if (TrackAudioComponent && TrackLoopSound)
-    {
-        TrackAudioComponent->SetSound(TrackLoopSound);
-        TrackAudioComponent->SetVolumeMultiplier(0.0f);
-        TrackAudioComponent->SetPitchMultiplier(TrackMinPitch);
-        TrackAudioComponent->Play();
-    }
-
-    if (TurretAudioComponent && TurretLoopSound)
-    {
-        TurretAudioComponent->SetSound(TurretLoopSound);
-        TurretAudioComponent->SetVolumeMultiplier(0.0f);
-        TurretAudioComponent->Play();
-    }
+    InitializeAudioComponents();
 
     ApplyCameraModeImmediate();
 }
@@ -160,6 +139,7 @@ void AIronGridTankPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
     PlayerInputComponent->BindAction(TEXT("Brake"), IE_Released, this, &AIronGridTankPawn::BrakeReleased);
     PlayerInputComponent->BindAction(TEXT("Fire"), IE_Pressed, this, &AIronGridTankPawn::FireWeapon);
     PlayerInputComponent->BindAction(TEXT("Reload"), IE_Pressed, this, &AIronGridTankPawn::ReloadWeapon);
+    PlayerInputComponent->BindAction(TEXT("TestAudio"), IE_Pressed, this, &AIronGridTankPawn::TestAssignedAudio);
     PlayerInputComponent->BindAction(TEXT("ToggleCameraMode"), IE_Pressed, this, &AIronGridTankPawn::ToggleCameraMode);
 }
 
@@ -480,13 +460,10 @@ void AIronGridTankPawn::MulticastMuzzleFX_Implementation()
     }
 #endif
 
-    if (CannonFireSound && GetWorld())
-    {
-        UGameplayStatics::PlaySoundAtLocation(
-            this,
-            CannonFireSound,
-            Muzzle ? Muzzle->GetComponentLocation() : GetActorLocation());
-    }
+    PlayTankOneShot(
+        CannonFireSound,
+        Muzzle ? Muzzle->GetComponentLocation() : GetActorLocation(),
+        TEXT("CannonFireSound"));
 
     OnWeaponFired();
 }
@@ -602,24 +579,148 @@ void AIronGridTankPawn::ClearReloadBoost()
 
 void AIronGridTankPawn::MulticastReloadStartedAudio_Implementation()
 {
-    if (ReloadStartSound && GetWorld())
-    {
-        UGameplayStatics::PlaySoundAtLocation(
-            this,
-            ReloadStartSound,
-            GetActorLocation());
-    }
+    PlayTankOneShot(
+        ReloadStartSound,
+        GetActorLocation(),
+        TEXT("ReloadStartSound"));
 }
 
 void AIronGridTankPawn::MulticastReloadFinishedAudio_Implementation()
 {
-    if (ReloadCompleteSound && GetWorld())
+    PlayTankOneShot(
+        ReloadCompleteSound,
+        GetActorLocation(),
+        TEXT("ReloadCompleteSound"));
+}
+
+void AIronGridTankPawn::InitializeAudioComponents()
+{
+    if (EngineAudioComponent)
+    {
+        EngineAudioComponent->SetSound(EngineLoopSound);
+        EngineAudioComponent->SetVolumeMultiplier(EngineVolume);
+        EngineAudioComponent->SetPitchMultiplier(EngineIdlePitch);
+
+        if (EngineLoopSound)
+        {
+            EngineAudioComponent->Play();
+        }
+    }
+
+    if (TrackAudioComponent)
+    {
+        TrackAudioComponent->SetSound(TrackLoopSound);
+        TrackAudioComponent->SetVolumeMultiplier(0.0f);
+        TrackAudioComponent->SetPitchMultiplier(TrackMinPitch);
+
+        if (TrackLoopSound)
+        {
+            TrackAudioComponent->Play();
+        }
+    }
+
+    if (TurretAudioComponent)
+    {
+        TurretAudioComponent->SetSound(TurretLoopSound);
+        TurretAudioComponent->SetVolumeMultiplier(0.0f);
+
+        if (TurretLoopSound)
+        {
+            TurretAudioComponent->Play();
+        }
+    }
+
+#if !(UE_BUILD_SHIPPING)
+    if (bShowAudioDebugMessages && IsLocallyControlled() && GEngine)
+    {
+        const FString AudioState = FString::Printf(
+            TEXT("AUDIO SLOTS  Engine:%s  Tracks:%s  Turret:%s  Cannon:%s  Reload:%s/%s"),
+            EngineLoopSound ? TEXT("OK") : TEXT("NONE"),
+            TrackLoopSound ? TEXT("OK") : TEXT("NONE"),
+            TurretLoopSound ? TEXT("OK") : TEXT("NONE"),
+            CannonFireSound ? TEXT("OK") : TEXT("NONE"),
+            ReloadStartSound ? TEXT("OK") : TEXT("NONE"),
+            ReloadCompleteSound ? TEXT("OK") : TEXT("NONE"));
+
+        GEngine->AddOnScreenDebugMessage(
+            -1,
+            6.0f,
+            FColor::Cyan,
+            AudioState);
+    }
+#endif
+}
+
+void AIronGridTankPawn::PlayTankOneShot(
+    USoundBase* Sound,
+    const FVector& WorldLocation,
+    const TCHAR* DebugLabel)
+{
+    if (!Sound || !GetWorld() || GetNetMode() == NM_DedicatedServer)
+    {
+#if !(UE_BUILD_SHIPPING)
+        if (bShowAudioDebugMessages && IsLocallyControlled() && GEngine && !Sound)
+        {
+            GEngine->AddOnScreenDebugMessage(
+                -1,
+                2.0f,
+                FColor::Red,
+                FString::Printf(TEXT("AUDIO MISSING: %s"), DebugLabel));
+        }
+#endif
+        return;
+    }
+
+    if (IsLocallyControlled() && bLocalTankOneShotsAs2D)
+    {
+        UGameplayStatics::PlaySound2D(this, Sound);
+    }
+    else
     {
         UGameplayStatics::PlaySoundAtLocation(
             this,
-            ReloadCompleteSound,
-            GetActorLocation());
+            Sound,
+            WorldLocation);
     }
+
+#if !(UE_BUILD_SHIPPING)
+    if (bShowAudioDebugMessages && IsLocallyControlled() && GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(
+            -1,
+            1.25f,
+            FColor::Green,
+            FString::Printf(TEXT("AUDIO PLAY: %s"), DebugLabel));
+    }
+#endif
+}
+
+void AIronGridTankPawn::TestAssignedAudio()
+{
+    struct FAudioTestEntry
+    {
+        USoundBase* Sound;
+        const TCHAR* Label;
+    };
+
+    const FAudioTestEntry Tests[] =
+    {
+        { EngineLoopSound, TEXT("EngineLoopSound") },
+        { TrackLoopSound, TEXT("TrackLoopSound") },
+        { TurretLoopSound, TEXT("TurretLoopSound") },
+        { CannonFireSound, TEXT("CannonFireSound") },
+        { ReloadStartSound, TEXT("ReloadStartSound") },
+        { ReloadCompleteSound, TEXT("ReloadCompleteSound") }
+    };
+
+    constexpr int32 TestCount = UE_ARRAY_COUNT(Tests);
+    const int32 Index = AudioTestIndex % TestCount;
+    AudioTestIndex = (AudioTestIndex + 1) % TestCount;
+
+    PlayTankOneShot(
+        Tests[Index].Sound,
+        GetActorLocation(),
+        Tests[Index].Label);
 }
 
 void AIronGridTankPawn::UpdateAudio(float DeltaSeconds)
@@ -645,6 +746,12 @@ void AIronGridTankPawn::UpdateAudio(float DeltaSeconds)
 
     if (EngineAudioComponent && EngineLoopSound)
     {
+        if (!EngineAudioComponent->IsPlaying())
+        {
+            EngineAudioComponent->SetSound(EngineLoopSound);
+            EngineAudioComponent->Play();
+        }
+
         EngineAudioComponent->SetPitchMultiplier(
             FMath::Lerp(
                 EngineIdlePitch,
@@ -656,6 +763,12 @@ void AIronGridTankPawn::UpdateAudio(float DeltaSeconds)
 
     if (TrackAudioComponent && TrackLoopSound)
     {
+        if (!TrackAudioComponent->IsPlaying())
+        {
+            TrackAudioComponent->SetSound(TrackLoopSound);
+            TrackAudioComponent->Play();
+        }
+
         TrackAudioComponent->SetPitchMultiplier(
             FMath::Lerp(
                 TrackMinPitch,
@@ -668,6 +781,12 @@ void AIronGridTankPawn::UpdateAudio(float DeltaSeconds)
 
     if (TurretAudioComponent && TurretLoopSound)
     {
+        if (!TurretAudioComponent->IsPlaying())
+        {
+            TurretAudioComponent->SetSound(TurretLoopSound);
+            TurretAudioComponent->Play();
+        }
+
         const float TurretError = GetAimErrorDegrees();
         const bool bTurretMoving =
             TurretError > TurretAudioErrorThreshold;
