@@ -214,6 +214,8 @@ void AIronGridTankPawn::GetLifetimeReplicatedProps(
     DOREPLIFETIME(AIronGridTankPawn, CurrentAmmoInMagazine);
     DOREPLIFETIME(AIronGridTankPawn, ReserveAmmo);
     DOREPLIFETIME(AIronGridTankPawn, bReloading);
+    DOREPLIFETIME(AIronGridTankPawn, ActiveSpeedMultiplier);
+    DOREPLIFETIME(AIronGridTankPawn, ActiveReloadMultiplier);
 }
 
 FVector AIronGridTankPawn::GetPredictedBallisticImpactPoint() const
