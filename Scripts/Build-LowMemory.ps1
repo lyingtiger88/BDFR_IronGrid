@@ -1,1 +1,62 @@
-param(\n    [string]$EngineRoot = "D:\\GameDev\\UE_5.8",\n    [ValidateSet("Development","DebugGame","Shipping")]\n    [string]$Configuration = "Development",\n    [int]$MaxParallelActions = 2\n)\n\n$ErrorActionPreference = "Stop"\n\n$RepoRoot = Split-Path -Parent $PSScriptRoot\n$ProjectFile = Join-Path $RepoRoot "BDFR_IronGrid.uproject"\n$BuildBat = Join-Path $EngineRoot "Engine\\Build\\BatchFiles\\Build.bat"\n\nif (-not (Test-Path $ProjectFile)) { throw "Project file not found: $ProjectFile" }\nif (-not (Test-Path $BuildBat)) { throw "Unreal Build.bat not found: $BuildBat. Pass -EngineRoot with your UE 5.8 path." }\n\n$ConfigDir = Join-Path $env:APPDATA "Unreal Engine\\UnrealBuildTool"\n$ConfigFile = Join-Path $ConfigDir "BuildConfiguration.xml"\nNew-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null\n\nif (Test-Path $ConfigFile) {\n    $Backup = "$ConfigFile.bak"\n    Copy-Item $ConfigFile $Backup -Force\n    Write-Host "Backed up existing UBT configuration to: $Backup"\n}\n\n$Xml = @"\n<?xml version="1.0" encoding="utf-8"?>\n<Configuration xmlns="https://www.unrealengine.com/BuildConfiguration">\n  <BuildConfiguration>\n    <MaxParallelActions>$MaxParallelActions</MaxParallelActions>\n  </BuildConfiguration>\n</Configuration>\n"@\nSet-Content -Path $ConfigFile -Value $Xml -Encoding UTF8\n\nWrite-Host ""\nWrite-Host "IRON GRID - Low Memory Build"\nWrite-Host "Max parallel compiler actions: $MaxParallelActions"\nWrite-Host "Starting build..."\n\n& $BuildBat BDFR_IronGridEditor Win64 $Configuration "-Project=$ProjectFile" -WaitMutex -FromMsBuild -architecture=x64\n$ExitCode = $LASTEXITCODE\n\nif ($ExitCode -eq 0) {\n    Write-Host "Build completed successfully."\n} else {\n    Write-Host "Build failed with exit code $ExitCode."\n    Write-Host "If C3859/C1076/C1060 remain, increase the Windows page file and reboot."\n}\nexit $ExitCode
+param(
+    [string]$EngineRoot = "D:\\GameDev\\UE_5.8",
+    [ValidateSet("Development","DebugGame","Shipping")]
+    [string]$Configuration = "Development",
+    [ValidateRange(1, 16)]
+    [int]$MaxParallelActions = 1
+)
+
+$ErrorActionPreference = "Stop"
+
+$RepoRoot = Split-Path -Parent $PSScriptRoot
+$ProjectFile = Join-Path $RepoRoot "BDFR_IronGrid.uproject"
+$BuildBat = Join-Path $EngineRoot "Engine\\Build\\BatchFiles\\Build.bat"
+
+if (-not (Test-Path $ProjectFile)) { throw "Project file not found: $ProjectFile" }
+if (-not (Test-Path $BuildBat)) { throw "Unreal Build.bat not found: $BuildBat. Pass -EngineRoot with your UE 5.8 path." }
+
+$ConfigDir = Join-Path $env:APPDATA "Unreal Engine\\UnrealBuildTool"
+$ConfigFile = Join-Path $ConfigDir "BuildConfiguration.xml"
+New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
+
+if (Test-Path $ConfigFile) {
+    $Backup = "$ConfigFile.bak"
+    Copy-Item $ConfigFile $Backup -Force
+    Write-Host "Backed up existing UBT configuration to: $Backup"
+}
+
+$Xml = @"
+<?xml version="1.0" encoding="utf-8"?>
+<Configuration xmlns="https://www.unrealengine.com/BuildConfiguration">
+  <BuildConfiguration>
+    <bAllowXGE>false</bAllowXGE>
+    <bAllowFASTBuild>false</bAllowFASTBuild>
+  </BuildConfiguration>
+  <ParallelExecutor>
+    <MaxProcessorCount>$MaxParallelActions</MaxProcessorCount>
+    <ProcessorCountMultiplier>1</ProcessorCountMultiplier>
+    <MemoryPerActionBytes>0</MemoryPerActionBytes>
+  </ParallelExecutor>
+</Configuration>
+"@
+Set-Content -Path $ConfigFile -Value $Xml -Encoding UTF8
+
+Write-Host ""
+Write-Host "IRON GRID - LOW MEMORY BUILD" -ForegroundColor Cyan
+Write-Host "Project: $ProjectFile"
+Write-Host "Engine : $EngineRoot"
+Write-Host "Parallel compiler actions: $MaxParallelActions"
+Write-Host ""
+
+& $BuildBat BDFR_IronGridEditor Win64 $Configuration "-Project=$ProjectFile" -WaitMutex -architecture=x64
+$ExitCode = $LASTEXITCODE
+
+Write-Host ""
+if ($ExitCode -eq 0) {
+    Write-Host "Build completed successfully." -ForegroundColor Green
+} else {
+    Write-Host "Build failed with exit code $ExitCode." -ForegroundColor Red
+    Write-Host "Run .\\Scripts\\Diagnose-BuildMemory.ps1 and check the page-file/commit values."
+}
+
+exit $ExitCode
