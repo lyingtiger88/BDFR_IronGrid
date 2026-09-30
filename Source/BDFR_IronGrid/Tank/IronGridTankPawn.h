@@ -238,6 +238,33 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon", meta=(ClampMin="0.05"))
     float ReloadDuration = 3.5f;
 
+    // Prototype feedback. Keep enabled until final muzzle/impact art is assigned.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Feedback")
+    bool bShowDebugMuzzleFX = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Feedback", meta=(ClampMin="0.01"))
+    float DebugMuzzleFXDuration = 0.10f;
+
+    // Visual turret recoil. Gameplay muzzle direction remains stable.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Feedback", meta=(ClampMin="0.0"))
+    float RecoilDistance = 18.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Feedback", meta=(ClampMin="1.0"))
+    float RecoilReturnSpeed = 95.0f;
+
+    // Small camera pulse when firing. For orthographic view this is added to OrthoWidth.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Feedback", meta=(ClampMin="0.0"))
+    float CameraRecoilKick = 110.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Feedback", meta=(ClampMin="0.1"))
+    float CameraRecoilReturnSpeed = 7.0f;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Weapon|Runtime")
+    float CurrentRecoilOffset = 0.0f;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Weapon|Runtime")
+    float CurrentCameraRecoil = 0.0f;
+
     UFUNCTION(BlueprintImplementableEvent, Category="IronGrid|Weapon|FX")
     void OnWeaponFired();
 
@@ -312,6 +339,7 @@ private:
     void PerformFire();
     void StartReload();
     void CompleteReload();
+    void UpdateWeaponFeedback(float DeltaSeconds);
 
     void UpdateTrackedMovement(float DeltaSeconds);
     float MoveTrackSpeedToward(float CurrentSpeed, float TargetSpeed, float DeltaSeconds) const;
