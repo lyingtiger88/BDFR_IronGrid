@@ -477,3 +477,14 @@ If MSVC reports C3859, C1076, or C1060 while creating Unreal PCH files, see `Doc
 ## Project cleanup
 
 Use `Scripts/Clean-Project.ps1` to safely remove generated Unreal/Visual Studio build files before a clean rebuild. See `Docs/ProjectCleanup.md` for normal, deep, preview, and regenerate modes.
+
+### One-click developer tools
+
+Run `Scripts/IronGrid-Tools.bat` to open a simple menu:
+
+- `1` — Clean Project
+- `2` — Low-Memory Build
+- `3` — Diagnose Build Memory
+- `0` — Exit
+
+The launcher can be started by double-clicking the BAT file; it automatically finds the PowerShell scripts in the same folder.
