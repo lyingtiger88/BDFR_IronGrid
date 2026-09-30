@@ -36,6 +36,8 @@ The repository currently includes:
 - Server-authoritative cannon firing with replicated ballistic projectiles
 - Reload / reserve-ammo system
 - Gravity-based shell trajectory and predicted ballistic impact reticle
+- Projectile sprite slot with automatic debug-visual fallback
+- Cannon visual recoil, camera recoil pulse, muzzle feedback, and impact feedback
 
 The current milestone is **Weapons & Ballistics v1**. Next comes **Armor, Penetration & Module Damage**, followed by deeper **Network Replication** work.
 
@@ -144,7 +146,7 @@ The current milestone is **Weapons & Ballistics v1**. Next comes **Armor, Penetr
 - [x] Alignment state changes actual-reticle color
 - [~] Reticles currently drawn as native HUD crosses
 - [ ] Replace debug crosses with final Iron Grid sprite reticles
-- [ ] Ballistic impact reticle
+- [x] Ballistic impact reticle
 - [ ] Obstructed-shot indication
 - [ ] Reload indicator
 - [ ] Target lock / target information state
@@ -179,7 +181,7 @@ The current milestone is **Weapons & Ballistics v1**. Next comes **Armor, Penetr
 - [ ] Manual mouse-wheel zoom
 - [ ] Movement-direction look-ahead
 - [ ] Optional aim-direction look-ahead
-- [ ] Camera shake / recoil response
+- [x] Camera recoil response
 - [ ] Spectator camera
 
 **Status:** Two camera modes functional.
@@ -219,8 +221,8 @@ The current milestone is **Weapons & Ballistics v1**. Next comes **Armor, Penetr
 - [x] Fire input
 - [x] Projectile actor
 - [x] Server-authoritative firing
-- [~] Muzzle flash hook
-- [ ] Recoil
+- [~] Muzzle flash: debug feedback + Blueprint production hook
+- [x] Visual turret recoil and camera recoil pulse
 - [x] Reload timing
 - [x] Basic ammunition inventory / reserve ammo
 - [ ] AP ammunition
@@ -231,12 +233,12 @@ The current milestone is **Weapons & Ballistics v1**. Next comes **Armor, Penetr
 - [x] Gravity / shell drop
 - [x] Range-dependent ballistic trajectory
 - [ ] Ricochet logic
-- [~] Impact FX hook
+- [~] Impact FX: debug feedback + Blueprint production hook
 - [x] Ballistic impact reticle
 - [ ] Rangefinder
 - [ ] Optional stabilizer system
 
-**Status:** Weapons & Ballistics v1 functional; ammo types, ricochet, recoil, final FX, and penetration remain planned.
+**Status:** Weapons & Ballistics v1.1 functional; projectile visuals, recoil, muzzle/impact feedback, reload, trajectory prediction, and replicated projectile firing are in place. Ammo types, ricochet, final production FX, and penetration remain planned.
 
 </details>
 
@@ -409,9 +411,9 @@ The current milestone is **Weapons & Ballistics v1**. Next comes **Armor, Penetr
 
 2. **Weapon Polish**
    - AP / HE / HEAT ammo types
-   - recoil
-   - production muzzle / impact FX
+   - production muzzle / impact assets
    - rangefinder
+   - optional stabilizer
 
 3. **Replication Prototype**
    - two-player dedicated-server test
