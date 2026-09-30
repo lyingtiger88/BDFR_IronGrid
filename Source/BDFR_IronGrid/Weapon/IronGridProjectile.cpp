@@ -198,5 +198,14 @@ void AIronGridProjectile::MulticastImpactFX_Implementation(
     }
 #endif
 
+    if (ImpactSound && GetWorld())
+    {
+        UGameplayStatics::PlaySoundAtLocation(
+            this,
+            ImpactSound,
+            ImpactPoint,
+            ImpactSoundVolume);
+    }
+
     OnImpactFX(ImpactPoint, ImpactNormal);
 }
