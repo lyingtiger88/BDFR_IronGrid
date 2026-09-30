@@ -15,7 +15,11 @@ AIronGridTankPawn::AIronGridTankPawn()
     PrimaryActorTick.bCanEverTick = true;
 
     bReplicates = true;
-    SetReplicateMovement(true);
+
+    // Tank movement replication is intentionally deferred to the dedicated
+    // movement-networking milestone. The pawn must replicate for weapon RPCs,
+    // but its transform is still controlled by the current local prototype.
+    SetReplicateMovement(false);
 
     ProjectileClass = AIronGridProjectile::StaticClass();
 
@@ -71,9 +75,12 @@ void AIronGridTankPawn::BeginPlay()
     DesiredAimWorldPoint = GetActorLocation() + GetActorForwardVector() * 1000.0f;
     PreviousActorLocation = GetActorLocation();
 
-    CurrentAmmoInMagazine = FMath::Max(MagazineSize, 1);
-    ReserveAmmo = FMath::Max(StartingReserveAmmo, 0);
-    bReloading = false;
+    if (HasAuthority())
+    {
+        CurrentAmmoInMagazine = FMath::Max(MagazineSize, 1);
+        ReserveAmmo = FMath::Max(StartingReserveAmmo, 0);
+        bReloading = false;
+    }
 
     ApplyCameraModeImmediate();
 }
