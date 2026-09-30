@@ -33,8 +33,11 @@ The repository currently includes:
 - Pause menu on **P**
 - Camera controls inside the pause menu
 - Multiplayer-safe pause-menu behavior
+- Server-authoritative cannon firing with replicated ballistic projectiles
+- Reload / reserve-ammo system
+- Gravity-based shell trajectory and predicted ballistic impact reticle
 
-The next major milestone is **Weapons & Ballistics**, followed by **Armor & Damage**, then **Network Replication**.
+The current milestone is **Weapons & Ballistics v1**. Next comes **Armor, Penetration & Module Damage**, followed by deeper **Network Replication** work.
 
 ---
 
@@ -53,7 +56,7 @@ The next major milestone is **Weapons & Ballistics**, followed by **Armor & Dama
 - [~] Phase 2 — War Thunder-style Aiming
 - [~] Phase 3 — Camera System
 - [~] Phase 4 — Pause Menu & Initial Settings
-- [ ] Phase 5 — Weapons & Ballistics
+- [~] Phase 5 — Weapons & Ballistics
 - [ ] Phase 6 — Armor, Damage & Vehicle Modules
 - [~] Phase 7 — Multiplayer Foundation
 - [ ] Phase 8 — Battle Royale Game Mode
@@ -213,25 +216,27 @@ The next major milestone is **Weapons & Ballistics**, followed by **Armor & Dama
 <details>
 <summary><strong>Phase 5 — Weapons & Ballistics</strong></summary>
 
-- [ ] Fire input
-- [ ] Projectile actor
-- [ ] Server-authoritative firing
-- [ ] Muzzle flash
+- [x] Fire input
+- [x] Projectile actor
+- [x] Server-authoritative firing
+- [~] Muzzle flash hook
 - [ ] Recoil
-- [ ] Reload timing
-- [ ] Ammunition inventory
+- [x] Reload timing
+- [x] Basic ammunition inventory / reserve ammo
 - [ ] AP ammunition
 - [ ] HE ammunition
 - [ ] HEAT ammunition
 - [ ] Smoke ammunition
-- [ ] Projectile velocity
-- [ ] Gravity / shell drop
-- [ ] Range-dependent trajectory
+- [x] Projectile velocity
+- [x] Gravity / shell drop
+- [x] Range-dependent ballistic trajectory
 - [ ] Ricochet logic
-- [ ] Impact effects
-- [ ] Ballistic impact reticle
+- [~] Impact FX hook
+- [x] Ballistic impact reticle
 - [ ] Rangefinder
 - [ ] Optional stabilizer system
+
+**Status:** Weapons & Ballistics v1 functional; ammo types, ricochet, recoil, final FX, and penetration remain planned.
 
 </details>
 
@@ -265,7 +270,7 @@ The next major milestone is **Weapons & Ballistics**, followed by **Armor & Dama
 - [ ] Tank movement replication
 - [ ] Turret rotation replication
 - [ ] Aim-state replication
-- [ ] Projectile replication
+- [x] Projectile replication
 - [ ] Damage replication
 - [ ] Server authority validation
 - [ ] Client prediction
@@ -395,18 +400,18 @@ The next major milestone is **Weapons & Ballistics**, followed by **Armor & Dama
 
 ## Recommended next development order
 
-1. **Weapon Prototype**
-   - fire
-   - projectile
-   - reload
-   - muzzle FX
-   - shell impact
-
-2. **Ballistics & Damage**
-   - shell drop
+1. **Armor / Penetration Prototype**
+   - armor zones
+   - impact angle
    - penetration
-   - armor
-   - modules
+   - module damage
+   - ricochet foundation
+
+2. **Weapon Polish**
+   - AP / HE / HEAT ammo types
+   - recoil
+   - production muzzle / impact FX
+   - rangefinder
 
 3. **Replication Prototype**
    - two-player dedicated-server test
@@ -462,4 +467,5 @@ BDFR_IronGrid/
 ```
 
 See `Docs/AimingSystem.md` for the detailed aiming and multi-reticle design.  
-See `Docs/MovementSystem.md` for the Tracked Movement v2 model and tuning parameters.
+See `Docs/MovementSystem.md` for the Tracked Movement v2 model and tuning parameters.  
+See `Docs/WeaponSystem.md` for cannon firing, reload, projectile, and ballistic prediction details.
