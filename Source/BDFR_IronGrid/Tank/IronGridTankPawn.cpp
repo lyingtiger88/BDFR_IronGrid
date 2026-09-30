@@ -292,10 +292,12 @@ void AIronGridTankPawn::PerformFire()
 
     // Blueprint may explicitly have ProjectileClass set to None.
     // Always fall back to the native test projectile so firing remains testable.
-    TSubclassOf<AIronGridProjectile> ClassToSpawn =
-        ProjectileClass
-            ? ProjectileClass
-            : AIronGridProjectile::StaticClass();
+    TSubclassOf<AIronGridProjectile> ClassToSpawn = ProjectileClass;
+
+    if (!ClassToSpawn)
+    {
+        ClassToSpawn = AIronGridProjectile::StaticClass();
+    }
 
     AIronGridProjectile* Projectile =
         GetWorld()->SpawnActor<AIronGridProjectile>(
