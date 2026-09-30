@@ -5,6 +5,7 @@
 #include "IronGridProjectile.generated.h"
 
 class USphereComponent;
+class UStaticMeshComponent;
 class UProjectileMovementComponent;
 
 UCLASS()
@@ -33,6 +34,10 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Projectile")
     TObjectPtr<UProjectileMovementComponent> ProjectileMovement;
 
+    // Temporary visible shell used until final sprite/tracer art is assigned.
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Projectile")
+    TObjectPtr<UStaticMeshComponent> DebugVisual;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Projectile", meta=(ClampMin="0.0"))
     float Damage = 100.0f;
 
@@ -57,6 +62,6 @@ private:
         FVector NormalImpulse,
         const FHitResult& Hit);
 
-    UFUNCTION(NetMulticast, Unreliable)
+    UFUNCTION(NetMulticast, Reliable)
     void MulticastImpactFX(FVector ImpactPoint, FVector ImpactNormal);
 };
