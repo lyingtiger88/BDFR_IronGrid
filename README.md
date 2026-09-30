@@ -39,6 +39,9 @@ The repository currently includes:
 - Gravity-based shell trajectory and predicted ballistic impact reticle
 - Projectile sprite slot with automatic debug-visual fallback
 - Whole-tank cannon recoil, camera recoil pulse, muzzle feedback, and impact feedback
+- Dynamic engine, track, and turret audio layer with cannon/reload/impact sound slots
+- Power-up system with Ammo, Speed Boost, Reload Boost, and Repair hook
+- Separate power-up spawn and pickup sounds
 
 The current milestone is **Weapons & Ballistics v1**. Next comes **Armor, Penetration & Module Damage**, followed by deeper **Network Replication** work.
 
@@ -65,7 +68,7 @@ The current milestone is **Weapons & Ballistics v1**. Next comes **Armor, Penetr
 - [ ] Phase 8 — Battle Royale Game Mode
 - [ ] Phase 9 — Open World
 - [~] Phase 10 — SNES-HD Art Pipeline
-- [ ] Phase 11 — Audio & Feedback
+- [~] Phase 11 — Audio & Feedback
 - [ ] Phase 12 — Optimization & Release
 
 <details open>
@@ -305,6 +308,7 @@ The current milestone is **Weapons & Ballistics v1**. Next comes **Armor, Penetr
 - [ ] Tank equipment loot
 - [ ] Ammunition loot
 - [ ] Repair items
+- [~] Power-up pickup foundation
 - [ ] Vehicle upgrades
 - [ ] Player elimination
 - [ ] Spectating
@@ -365,14 +369,15 @@ The current milestone is **Weapons & Ballistics v1**. Next comes **Armor, Penetr
 <details>
 <summary><strong>Phase 11 — Audio & Feedback</strong></summary>
 
-- [ ] Tank engine loops
-- [ ] Track sounds
-- [ ] Turret motor sound
-- [ ] Cannon firing
-- [ ] Shell impacts
+- [x] Tank engine loop support
+- [x] Track loop support
+- [x] Turret motor loop support
+- [x] Cannon firing sound slot
+- [x] Shell impact sound slot
 - [ ] Ricochets
 - [ ] Explosions
 - [ ] Destruction
+- [x] Power-up spawn / pickup audio
 - [ ] UI sounds
 - [ ] Low-health / fire warnings
 - [ ] Dynamic battle ambience
@@ -471,7 +476,9 @@ BDFR_IronGrid/
 
 See `Docs/AimingSystem.md` for the detailed aiming and multi-reticle design.  
 See `Docs/MovementSystem.md` for the Tracked Movement v2 model and tuning parameters.  
-See `Docs/WeaponSystem.md` for cannon firing, reload, projectile, and ballistic prediction details.
+See `Docs/WeaponSystem.md` for cannon firing, reload, projectile, and ballistic prediction details.  
+See `Docs/AudioSystem.md` for tank/weapon audio asset setup.  
+See `Docs/PowerUpSystem.md` for power-up types, effects, visuals, and spawn/pickup audio.
 
 ## Build troubleshooting
 
