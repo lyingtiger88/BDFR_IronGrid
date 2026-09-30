@@ -398,6 +398,13 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Camera")
     float CurrentGroundSpeed = 0.0f;
 
+    // Replicated runtime modifiers applied by temporary power-ups.
+    UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|PowerUp|Runtime")
+    float ActiveSpeedMultiplier = 1.0f;
+
+    UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|PowerUp|Runtime")
+    float ActiveReloadMultiplier = 1.0f;
+
 private:
     void MoveForward(float Value);
     void TurnHull(float Value);
