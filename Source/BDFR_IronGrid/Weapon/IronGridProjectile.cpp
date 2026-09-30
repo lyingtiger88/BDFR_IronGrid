@@ -2,6 +2,8 @@
 
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "DrawDebugHelpers.h"
+#include "Engine/World.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/DamageType.h"
 #include "GameFramework/ProjectileMovementComponent.h"
@@ -10,7 +12,7 @@
 
 AIronGridProjectile::AIronGridProjectile()
 {
-    PrimaryActorTick.bCanEverTick = false;
+    PrimaryActorTick.bCanEverTick = true;
 
     bReplicates = true;
     SetReplicateMovement(true);
@@ -30,7 +32,9 @@ AIronGridProjectile::AIronGridProjectile()
     DebugVisual->SetupAttachment(Collision);
     DebugVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     DebugVisual->SetCastShadow(false);
-    DebugVisual->SetRelativeScale3D(FVector(0.08f));
+    // Deliberately oversized placeholder so the shell is easy to see
+    // from the current orthographic prototype camera.
+    DebugVisual->SetRelativeScale3D(FVector(0.20f));
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMesh(
         TEXT("/Engine/BasicShapes/Sphere.Sphere"));
@@ -54,11 +58,47 @@ void AIronGridProjectile::BeginPlay()
     Super::BeginPlay();
 
     SetLifeSpan(ProjectileLifeSeconds);
+    PreviousDebugLocation = GetActorLocation();
 
     if (AActor* ProjectileOwner = GetOwner())
     {
         Collision->IgnoreActorWhenMoving(ProjectileOwner, true);
     }
+}
+
+void AIronGridProjectile::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+
+#if !(UE_BUILD_SHIPPING)
+    if (bShowDebugTrail && GetWorld() && GetNetMode() != NM_DedicatedServer)
+    {
+        const FVector CurrentLocation = GetActorLocation();
+
+        DrawDebugLine(
+            GetWorld(),
+            PreviousDebugLocation,
+            CurrentLocation,
+            FColor::Orange,
+            false,
+            DebugTrailDuration,
+            0,
+            4.0f);
+
+        DrawDebugSphere(
+            GetWorld(),
+            CurrentLocation,
+            DebugMarkerRadius,
+            8,
+            FColor::Yellow,
+            false,
+            DebugTrailDuration,
+            0,
+            1.5f);
+
+        PreviousDebugLocation = CurrentLocation;
+    }
+#endif
 }
 
 void AIronGridProjectile::InitializeProjectile(
