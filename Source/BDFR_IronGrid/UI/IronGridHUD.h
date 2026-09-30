@@ -19,6 +19,9 @@ protected:
     UPROPERTY(EditAnywhere, Category="IronGrid|HUD")
     float ActualReticleSize = 9.0f;
 
+    UPROPERTY(EditAnywhere, Category="IronGrid|HUD")
+    float BallisticReticleSize = 7.0f;
+
 private:
     void DrawCross(const FVector2D& Position, float Size, const FLinearColor& Color, float Thickness);
 };
