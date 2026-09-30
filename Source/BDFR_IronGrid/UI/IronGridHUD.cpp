@@ -31,6 +31,38 @@ void AIronGridHUD::DrawHUD()
 
         DrawCross(ActualScreen, ActualReticleSize, ActualColor, 2.0f);
     }
+
+    FVector2D BallisticScreen;
+    if (PC->ProjectWorldLocationToScreen(
+        Tank->GetPredictedBallisticImpactPoint(),
+        BallisticScreen,
+        true))
+    {
+        DrawCross(
+            BallisticScreen,
+            BallisticReticleSize,
+            FLinearColor(1.0f, 0.2f, 0.05f, 1.0f),
+            1.5f);
+    }
+
+    const FString WeaponState = Tank->IsWeaponReloading()
+        ? FString::Printf(
+            TEXT("RELOADING  |  %d / %d"),
+            Tank->GetAmmoInMagazine(),
+            Tank->GetReserveAmmo())
+        : FString::Printf(
+            TEXT("AMMO %d  |  RESERVE %d"),
+            Tank->GetAmmoInMagazine(),
+            Tank->GetReserveAmmo());
+
+    DrawText(
+        WeaponState,
+        FLinearColor::White,
+        32.0f,
+        32.0f,
+        nullptr,
+        1.0f,
+        false);
 }
 
 void AIronGridHUD::DrawCross(const FVector2D& Position, float Size, const FLinearColor& Color, float Thickness)
