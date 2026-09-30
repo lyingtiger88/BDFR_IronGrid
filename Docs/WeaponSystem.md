@@ -144,3 +144,77 @@ Still planned:
 - production muzzle and impact FX
 - advanced client-side firing prediction
 
+
+
+## Weapon Polish v1.1
+
+The weapon prototype now has a production-facing visual layer in addition to the debug shell.
+
+### Projectile visual
+
+`AIronGridProjectile` now contains:
+
+```
+Collision
+├── ProjectileSprite
+└── DebugVisual
+```
+
+To use final shell art:
+
+1. Create/open a Blueprint child of `IronGridProjectile`.
+2. Select `ProjectileSprite`.
+3. Assign the Paper2D shell/tracer sprite.
+4. Adjust its relative rotation for the top-down plane.
+5. Leave `bHideDebugVisualWhenSpriteAssigned` enabled.
+
+When a sprite is assigned, the temporary sphere is hidden automatically.
+
+The orange debug trajectory is controlled separately with:
+
+`bShowDebugTrail`
+
+Turn it off when the final tracer visual is ready.
+
+### Muzzle feedback
+
+Each successful shot now produces:
+
+- a short debug muzzle flash/arrow in development builds
+- `OnWeaponFired` Blueprint event
+- visual turret recoil
+- a small camera recoil pulse
+
+Tuning:
+
+- `bShowDebugMuzzleFX`
+- `DebugMuzzleFXDuration`
+- `RecoilDistance`
+- `RecoilReturnSpeed`
+- `CameraRecoilKick`
+- `CameraRecoilReturnSpeed`
+
+The recoil is visual-only and does not alter the logical muzzle direction or ballistic calculation.
+
+### Impact feedback
+
+Projectile impacts now provide:
+
+- a short red/orange development impact marker
+- `OnImpactFX(ImpactPoint, ImpactNormal)` Blueprint event
+
+The debug impact marker is controlled by:
+
+`bShowDebugImpactFX`
+
+### Blueprint FX workflow
+
+Use the existing Blueprint events to replace debug feedback with production assets:
+
+- Tank: `OnWeaponFired`
+- Tank: `OnReloadStarted`
+- Tank: `OnReloadFinished`
+- Projectile: `OnProjectileLaunched`
+- Projectile: `OnImpactFX`
+
+These events are intended for sprite flashes, smoke, audio, shell tracers, dust, debris, and later Niagara effects.
