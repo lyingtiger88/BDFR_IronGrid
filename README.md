@@ -473,3 +473,7 @@ See `Docs/WeaponSystem.md` for cannon firing, reload, projectile, and ballistic 
 ## Build troubleshooting
 
 If MSVC reports C3859, C1076, or C1060 while creating Unreal PCH files, see `Docs/LowMemoryBuild.md` and use `Scripts/Build-LowMemory.ps1` to reduce parallel compiler memory pressure.
+
+## Project cleanup
+
+Use `Scripts/Clean-Project.ps1` to safely remove generated Unreal/Visual Studio build files before a clean rebuild. See `Docs/ProjectCleanup.md` for normal, deep, preview, and regenerate modes.
