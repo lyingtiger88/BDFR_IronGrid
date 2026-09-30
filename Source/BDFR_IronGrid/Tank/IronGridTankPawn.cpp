@@ -12,6 +12,7 @@
 #include "Net/UnrealNetwork.h"
 #include "PaperSpriteComponent.h"
 #include "TimerManager.h"
+#include "Sound/SoundBase.h"
 #include "Weapon/IronGridProjectile.h"
 
 AIronGridTankPawn::AIronGridTankPawn()
