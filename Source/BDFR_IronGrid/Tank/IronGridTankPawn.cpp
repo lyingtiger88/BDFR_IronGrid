@@ -98,7 +98,7 @@ void AIronGridTankPawn::ApplyVisualRotationOffsets()
     if (TurretVisualRoot)
     {
         TurretVisualRoot->SetRelativeRotation(FRotator(0.0f, TurretArtYawOffset, 0.0f));
-        TurretVisualRoot->SetRelativeLocation(FVector(-CurrentRecoilOffset, 0.0f, 0.0f));
+        TurretVisualRoot->SetRelativeLocation(FVector::ZeroVector);
     }
 }
 
@@ -393,7 +393,16 @@ void AIronGridTankPawn::CompleteReload()
 
 void AIronGridTankPawn::MulticastMuzzleFX_Implementation()
 {
-    CurrentRecoilOffset = RecoilDistance;
+    if (Muzzle)
+    {
+        FVector RecoilDirection = -Muzzle->GetForwardVector();
+        RecoilDirection.Z = 0.0f;
+        RecoilDirection.Normalize();
+
+        CurrentRecoilVelocity =
+            RecoilDirection * TankRecoilSpeed;
+    }
+
     CurrentCameraRecoil = FMath::Max(CurrentCameraRecoil, CameraRecoilKick);
 
 #if !(UE_BUILD_SHIPPING)
@@ -434,12 +443,29 @@ void AIronGridTankPawn::MulticastMuzzleFX_Implementation()
 
 void AIronGridTankPawn::UpdateWeaponFeedback(float DeltaSeconds)
 {
-    CurrentRecoilOffset =
-        FMath::FInterpConstantTo(
-            CurrentRecoilOffset,
-            0.0f,
-            DeltaSeconds,
-            RecoilReturnSpeed);
+    if (!CurrentRecoilVelocity.IsNearlyZero())
+    {
+        const FVector RecoilDelta =
+            CurrentRecoilVelocity * DeltaSeconds;
+
+        FHitResult RecoilHit;
+        AddActorWorldOffset(
+            RecoilDelta,
+            true,
+            &RecoilHit);
+
+        if (RecoilHit.bBlockingHit)
+        {
+            CurrentRecoilVelocity *= 0.20f;
+        }
+
+        CurrentRecoilVelocity =
+            FMath::VInterpTo(
+                CurrentRecoilVelocity,
+                FVector::ZeroVector,
+                DeltaSeconds,
+                TankRecoilDamping);
+    }
 
     CurrentCameraRecoil =
         FMath::FInterpTo(
@@ -447,12 +473,6 @@ void AIronGridTankPawn::UpdateWeaponFeedback(float DeltaSeconds)
             0.0f,
             DeltaSeconds,
             CameraRecoilReturnSpeed);
-
-    if (TurretVisualRoot)
-    {
-        TurretVisualRoot->SetRelativeLocation(
-            FVector(-CurrentRecoilOffset, 0.0f, 0.0f));
-    }
 }
 
 void AIronGridTankPawn::MoveForward(float Value)
