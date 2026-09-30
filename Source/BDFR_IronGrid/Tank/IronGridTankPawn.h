@@ -5,10 +5,12 @@
 #include "IronGridTankPawn.generated.h"
 
 class AIronGridProjectile;
+class UAudioComponent;
 class UCameraComponent;
 class UPaperSpriteComponent;
 class USceneComponent;
 class USpringArmComponent;
+class USoundBase;
 
 UENUM(BlueprintType)
 enum class EIronGridCameraMode : uint8
@@ -62,6 +64,27 @@ public:
 
     UFUNCTION(BlueprintPure, Category="IronGrid|Weapon")
     bool IsWeaponReloading() const { return bReloading; }
+
+    UFUNCTION(BlueprintCallable, Category="IronGrid|PowerUp")
+    void AddReserveAmmo(int32 Amount);
+
+    UFUNCTION(BlueprintCallable, Category="IronGrid|PowerUp")
+    void ApplySpeedBoost(float Multiplier, float Duration);
+
+    UFUNCTION(BlueprintCallable, Category="IronGrid|PowerUp")
+    void ApplyReloadBoost(float ReloadTimeMultiplier, float Duration);
+
+    UFUNCTION(BlueprintCallable, Category="IronGrid|PowerUp")
+    void ApplyRepairPowerUp(float RepairAmount);
+
+    UFUNCTION(BlueprintPure, Category="IronGrid|PowerUp")
+    float GetActiveSpeedMultiplier() const { return ActiveSpeedMultiplier; }
+
+    UFUNCTION(BlueprintPure, Category="IronGrid|PowerUp")
+    float GetActiveReloadMultiplier() const { return ActiveReloadMultiplier; }
+
+    UFUNCTION(BlueprintImplementableEvent, Category="IronGrid|PowerUp")
+    void OnRepairPowerUp(float RepairAmount);
 
     UFUNCTION(BlueprintCallable, Category="IronGrid|Visual")
     void ApplyVisualRotationOffsets();
@@ -137,6 +160,15 @@ protected:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Camera")
     TObjectPtr<UCameraComponent> TopDownCamera;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Audio")
+    TObjectPtr<UAudioComponent> EngineAudioComponent;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Audio")
+    TObjectPtr<UAudioComponent> TrackAudioComponent;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Audio")
+    TObjectPtr<UAudioComponent> TurretAudioComponent;
 
     // Maximum forward track speed in Unreal units per second.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Movement|Tracked", meta=(ClampMin="0.0"))
@@ -275,6 +307,50 @@ protected:
     UFUNCTION(BlueprintImplementableEvent, Category="IronGrid|Weapon|FX")
     void OnReloadFinished();
 
+
+    // --- Audio ---
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio")
+    TObjectPtr<USoundBase> EngineLoopSound;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio")
+    TObjectPtr<USoundBase> TrackLoopSound;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio")
+    TObjectPtr<USoundBase> TurretLoopSound;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio")
+    TObjectPtr<USoundBase> CannonFireSound;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio")
+    TObjectPtr<USoundBase> ReloadStartSound;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio")
+    TObjectPtr<USoundBase> ReloadCompleteSound;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio", meta=(ClampMin="0.0", ClampMax="2.0"))
+    float EngineVolume = 0.85f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio", meta=(ClampMin="0.0", ClampMax="2.0"))
+    float TrackVolume = 0.75f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio", meta=(ClampMin="0.0", ClampMax="2.0"))
+    float TurretVolume = 0.65f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio", meta=(ClampMin="0.1", ClampMax="3.0"))
+    float EngineIdlePitch = 0.75f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio", meta=(ClampMin="0.1", ClampMax="3.0"))
+    float EngineMaxPitch = 1.35f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio", meta=(ClampMin="0.1", ClampMax="3.0"))
+    float TrackMinPitch = 0.80f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio", meta=(ClampMin="0.1", ClampMax="3.0"))
+    float TrackMaxPitch = 1.30f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio", meta=(ClampMin="0.0"))
+    float TurretAudioErrorThreshold = 0.75f;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Aim", meta=(ClampMin="0.0"))
     float TurretTraverseSpeed = 55.0f;
 
@@ -337,16 +413,25 @@ private:
     UFUNCTION(NetMulticast, Unreliable)
     void MulticastMuzzleFX();
 
+    UFUNCTION(NetMulticast, Unreliable)
+    void MulticastReloadStartedAudio();
+
+    UFUNCTION(NetMulticast, Unreliable)
+    void MulticastReloadFinishedAudio();
+
     void PerformFire();
     void StartReload();
     void CompleteReload();
     void UpdateWeaponFeedback(float DeltaSeconds);
+    void UpdateAudio(float DeltaSeconds);
 
     void UpdateTrackedMovement(float DeltaSeconds);
     float MoveTrackSpeedToward(float CurrentSpeed, float TargetSpeed, float DeltaSeconds) const;
     void UpdateTurret(float DeltaSeconds);
     void UpdateCamera(float DeltaSeconds);
     void ApplyCameraModeImmediate();
+    void ClearSpeedBoost();
+    void ClearReloadBoost();
 
     float MoveInput = 0.0f;
     float TurnInput = 0.0f;
@@ -354,5 +439,7 @@ private:
     FVector PreviousActorLocation = FVector::ZeroVector;
 
     FTimerHandle ReloadTimerHandle;
+    FTimerHandle SpeedBoostTimerHandle;
+    FTimerHandle ReloadBoostTimerHandle;
     float LastFireTime = -1000.0f;
 };
