@@ -1,5 +1,7 @@
 #include "Player/IronGridPlayerController.h"
 
+#include "Components/InputComponent.h"
+
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "Tank/IronGridTankPawn.h"
