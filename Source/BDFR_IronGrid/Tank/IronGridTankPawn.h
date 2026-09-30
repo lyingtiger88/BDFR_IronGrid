@@ -4,6 +4,7 @@
 #include "GameFramework/Pawn.h"
 #include "IronGridTankPawn.generated.h"
 
+class AIronGridProjectile;
 class UCameraComponent;
 class UPaperSpriteComponent;
 class USceneComponent;
@@ -27,6 +28,7 @@ public:
     virtual void Tick(float DeltaSeconds) override;
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
     virtual void OnConstruction(const FTransform& Transform) override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
     UFUNCTION(BlueprintCallable, Category="IronGrid|Aim")
     void SetDesiredAimPoint(const FVector& WorldPoint);
@@ -39,6 +41,27 @@ public:
 
     UFUNCTION(BlueprintPure, Category="IronGrid|Aim")
     float GetAimErrorDegrees() const;
+
+    UFUNCTION(BlueprintPure, Category="IronGrid|Weapon")
+    FVector GetPredictedBallisticImpactPoint() const;
+
+    UFUNCTION(BlueprintCallable, Category="IronGrid|Weapon")
+    void FireWeapon();
+
+    UFUNCTION(BlueprintCallable, Category="IronGrid|Weapon")
+    void ReloadWeapon();
+
+    UFUNCTION(BlueprintPure, Category="IronGrid|Weapon")
+    int32 GetAmmoInMagazine() const { return CurrentAmmoInMagazine; }
+
+    UFUNCTION(BlueprintPure, Category="IronGrid|Weapon")
+    int32 GetMagazineSize() const { return MagazineSize; }
+
+    UFUNCTION(BlueprintPure, Category="IronGrid|Weapon")
+    int32 GetReserveAmmo() const { return ReserveAmmo; }
+
+    UFUNCTION(BlueprintPure, Category="IronGrid|Weapon")
+    bool IsWeaponReloading() const { return bReloading; }
 
     UFUNCTION(BlueprintCallable, Category="IronGrid|Visual")
     void ApplyVisualRotationOffsets();
@@ -169,6 +192,61 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Movement|Runtime")
     bool bBrakeHeld = false;
 
+
+    // --- Weapon / ballistics ---
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon")
+    TSubclassOf<AIronGridProjectile> ProjectileClass;
+
+    // Most tanks reload one shell at a time. Increase this for autoloaders/magazines.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Ammo", meta=(ClampMin="1"))
+    int32 MagazineSize = 1;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Ammo", meta=(ClampMin="0"))
+    int32 StartingReserveAmmo = 30;
+
+    UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Weapon|Runtime")
+    int32 CurrentAmmoInMagazine = 0;
+
+    UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Weapon|Runtime")
+    int32 ReserveAmmo = 0;
+
+    UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Weapon|Runtime")
+    bool bReloading = false;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Ballistics", meta=(ClampMin="100.0"))
+    float MuzzleVelocity = 30000.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Ballistics", meta=(ClampMin="0.0"))
+    float ProjectileGravityScale = 1.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Ballistics", meta=(ClampMin="0.0"))
+    float ProjectileDamage = 100.0f;
+
+    // Keeps the projectile above the flat battlefield collision plane.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Ballistics", meta=(ClampMin="0.0"))
+    float ProjectileSpawnHeight = 40.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Ballistics", meta=(ClampMin="0.1"))
+    float BallisticPredictionTime = 4.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Ballistics", meta=(ClampMin="0.0"))
+    float BallisticPredictionRadius = 8.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon", meta=(ClampMin="0.0"))
+    float FireInterval = 0.25f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon", meta=(ClampMin="0.05"))
+    float ReloadDuration = 3.5f;
+
+    UFUNCTION(BlueprintImplementableEvent, Category="IronGrid|Weapon|FX")
+    void OnWeaponFired();
+
+    UFUNCTION(BlueprintImplementableEvent, Category="IronGrid|Weapon|FX")
+    void OnReloadStarted();
+
+    UFUNCTION(BlueprintImplementableEvent, Category="IronGrid|Weapon|FX")
+    void OnReloadFinished();
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Aim", meta=(ClampMin="0.0"))
     float TurretTraverseSpeed = 55.0f;
 
@@ -221,6 +299,20 @@ private:
     void TurnHull(float Value);
     void BrakePressed();
     void BrakeReleased();
+
+    UFUNCTION(Server, Reliable)
+    void ServerFireWeapon();
+
+    UFUNCTION(Server, Reliable)
+    void ServerReloadWeapon();
+
+    UFUNCTION(NetMulticast, Unreliable)
+    void MulticastMuzzleFX();
+
+    void PerformFire();
+    void StartReload();
+    void CompleteReload();
+
     void UpdateTrackedMovement(float DeltaSeconds);
     float MoveTrackSpeedToward(float CurrentSpeed, float TargetSpeed, float DeltaSeconds) const;
     void UpdateTurret(float DeltaSeconds);
@@ -231,4 +323,7 @@ private:
     float TurnInput = 0.0f;
     FVector DesiredAimWorldPoint = FVector::ZeroVector;
     FVector PreviousActorLocation = FVector::ZeroVector;
+
+    FTimerHandle ReloadTimerHandle;
+    float LastFireTime = -1000.0f;
 };
