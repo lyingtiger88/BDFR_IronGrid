@@ -10,6 +10,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "PaperSpriteComponent.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Sound/SoundBase.h"
 
 AIronGridProjectile::AIronGridProjectile()
 {
