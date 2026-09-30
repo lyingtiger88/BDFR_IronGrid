@@ -182,19 +182,19 @@ Each successful shot now produces:
 
 - a short debug muzzle flash/arrow in development builds
 - `OnWeaponFired` Blueprint event
-- visual turret recoil
+- whole-vehicle recoil opposite the cannon direction
 - a small camera recoil pulse
 
 Tuning:
 
 - `bShowDebugMuzzleFX`
 - `DebugMuzzleFXDuration`
-- `RecoilDistance`
-- `RecoilReturnSpeed`
+- `TankRecoilSpeed`
+- `TankRecoilDamping`
 - `CameraRecoilKick`
 - `CameraRecoilReturnSpeed`
 
-The recoil is visual-only and does not alter the logical muzzle direction or ballistic calculation.
+The turret stays fixed on its mount. Recoil moves the whole tank opposite the cannon direction while preserving the logical muzzle direction and ballistic calculation.
 
 ### Impact feedback
 
