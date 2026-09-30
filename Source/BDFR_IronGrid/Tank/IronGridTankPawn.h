@@ -245,12 +245,13 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Feedback", meta=(ClampMin="0.01"))
     float DebugMuzzleFXDuration = 0.10f;
 
-    // Visual turret recoil. Gameplay muzzle direction remains stable.
+    // Whole-vehicle recoil. The turret remains fixed on its mount while the
+    // tank itself is pushed opposite the cannon direction.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Feedback", meta=(ClampMin="0.0"))
-    float RecoilDistance = 18.0f;
+    float TankRecoilSpeed = 260.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Feedback", meta=(ClampMin="1.0"))
-    float RecoilReturnSpeed = 95.0f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Feedback", meta=(ClampMin="0.1"))
+    float TankRecoilDamping = 8.0f;
 
     // Small camera pulse when firing. For orthographic view this is added to OrthoWidth.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Weapon|Feedback", meta=(ClampMin="0.0"))
@@ -260,7 +261,7 @@ protected:
     float CameraRecoilReturnSpeed = 7.0f;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Weapon|Runtime")
-    float CurrentRecoilOffset = 0.0f;
+    FVector CurrentRecoilVelocity = FVector::ZeroVector;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Weapon|Runtime")
     float CurrentCameraRecoil = 0.0f;
@@ -292,23 +293,23 @@ protected:
 
     // Fixed mode values.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera|Fixed", meta=(ClampMin="100.0"))
-    float FixedCameraArmLength = 1800.0f;
+    float FixedCameraArmLength = 1500.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera|Fixed", meta=(ClampMin="100.0"))
-    float FixedOrthoWidth = 2600.0f;
+    float FixedOrthoWidth = 2200.0f;
 
     // Speed-reactive near/far values.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera|Speed Reactive", meta=(ClampMin="100.0"))
-    float NearCameraArmLength = 1500.0f;
+    float NearCameraArmLength = 1250.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera|Speed Reactive", meta=(ClampMin="100.0"))
-    float FarCameraArmLength = 2400.0f;
+    float FarCameraArmLength = 2050.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera|Speed Reactive", meta=(ClampMin="100.0"))
-    float NearOrthoWidth = 2200.0f;
+    float NearOrthoWidth = 1800.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera|Speed Reactive", meta=(ClampMin="100.0"))
-    float FarOrthoWidth = 3600.0f;
+    float FarOrthoWidth = 3000.0f;
 
     // Ground speed at which the camera reaches the fully zoomed-out setting.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Camera|Speed Reactive", meta=(ClampMin="1.0"))
