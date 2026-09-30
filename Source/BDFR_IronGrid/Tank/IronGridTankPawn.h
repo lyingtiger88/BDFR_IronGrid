@@ -83,6 +83,9 @@ public:
     UFUNCTION(BlueprintPure, Category="IronGrid|PowerUp")
     float GetActiveReloadMultiplier() const { return ActiveReloadMultiplier; }
 
+    UFUNCTION(BlueprintCallable, Category="IronGrid|Audio")
+    void TestAssignedAudio();
+
     UFUNCTION(BlueprintImplementableEvent, Category="IronGrid|PowerUp")
     void OnRepairPowerUp(float RepairAmount);
 
@@ -351,6 +354,14 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio", meta=(ClampMin="0.0"))
     float TurretAudioErrorThreshold = 0.75f;
 
+    // For the locally controlled tank, bypass attenuation for important one-shot
+    // sounds so cannon/reload audio is always audible in the top-down camera.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio")
+    bool bLocalTankOneShotsAs2D = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Audio|Debug")
+    bool bShowAudioDebugMessages = true;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Aim", meta=(ClampMin="0.0"))
     float TurretTraverseSpeed = 55.0f;
 
@@ -431,6 +442,8 @@ private:
     void CompleteReload();
     void UpdateWeaponFeedback(float DeltaSeconds);
     void UpdateAudio(float DeltaSeconds);
+    void InitializeAudioComponents();
+    void PlayTankOneShot(USoundBase* Sound, const FVector& WorldLocation, const TCHAR* DebugLabel);
 
     void UpdateTrackedMovement(float DeltaSeconds);
     float MoveTrackSpeedToward(float CurrentSpeed, float TargetSpeed, float DeltaSeconds) const;
@@ -449,4 +462,5 @@ private:
     FTimerHandle SpeedBoostTimerHandle;
     FTimerHandle ReloadBoostTimerHandle;
     float LastFireTime = -1000.0f;
+    int32 AudioTestIndex = 0;
 };
