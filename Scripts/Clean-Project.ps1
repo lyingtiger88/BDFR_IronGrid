@@ -1,11 +1,9 @@
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [switch]$Deep,
     [switch]$RegenerateProjectFiles,
     [string]$EngineRoot = "D:\\GameDev\\UE_5.8"
 )
-
-[CmdletBinding(SupportsShouldProcess = $true)]
-param()
 
 $ErrorActionPreference = "Stop"
 
@@ -34,19 +32,15 @@ if ($Running) {
     exit 2
 }
 
-$SafeTargets = @(
+$Targets = @(
     (Join-Path $RepoRoot "Intermediate"),
     (Join-Path $RepoRoot "Binaries"),
     (Join-Path $RepoRoot ".vs"),
     (Join-Path $RepoRoot "BDFR_IronGrid.sln")
 )
 
-$DeepTargets = @(
-    (Join-Path $RepoRoot "DerivedDataCache")
-)
-
 if ($Deep) {
-    $SafeTargets += $DeepTargets
+    $Targets += (Join-Path $RepoRoot "DerivedDataCache")
 }
 
 Write-Host ""
@@ -55,7 +49,7 @@ Write-Host "Repository: $RepoRoot"
 Write-Host "Deep clean: $Deep"
 Write-Host ""
 
-foreach ($Target in $SafeTargets) {
+foreach ($Target in $Targets) {
     if (Test-Path $Target) {
         if ($PSCmdlet.ShouldProcess($Target, "Delete generated project data")) {
             Write-Host "Removing: $Target"
