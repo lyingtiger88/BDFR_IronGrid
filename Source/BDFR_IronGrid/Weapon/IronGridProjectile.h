@@ -17,6 +17,7 @@ public:
     AIronGridProjectile();
 
     virtual void BeginPlay() override;
+    virtual void Tick(float DeltaSeconds) override;
 
     UFUNCTION(BlueprintCallable, Category="IronGrid|Projectile")
     void InitializeProjectile(float InSpeed, float InDamage, float InGravityScale);
@@ -50,6 +51,15 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Projectile", meta=(ClampMin="0.1"))
     float ProjectileLifeSeconds = 8.0f;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Projectile|Debug")
+    bool bShowDebugTrail = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Projectile|Debug", meta=(ClampMin="0.01"))
+    float DebugTrailDuration = 0.20f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Projectile|Debug", meta=(ClampMin="1.0"))
+    float DebugMarkerRadius = 14.0f;
+
     UFUNCTION(BlueprintImplementableEvent, Category="IronGrid|Projectile|FX")
     void OnImpactFX(FVector ImpactPoint, FVector ImpactNormal);
 
@@ -64,4 +74,6 @@ private:
 
     UFUNCTION(NetMulticast, Reliable)
     void MulticastImpactFX(FVector ImpactPoint, FVector ImpactNormal);
+
+    FVector PreviousDebugLocation = FVector::ZeroVector;
 };
