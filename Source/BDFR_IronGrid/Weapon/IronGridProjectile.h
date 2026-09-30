@@ -7,6 +7,7 @@
 class UPaperSpriteComponent;
 class USphereComponent;
 class UStaticMeshComponent;
+class USoundBase;
 class UProjectileMovementComponent;
 
 UCLASS()
@@ -55,6 +56,12 @@ protected:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Projectile", meta=(ClampMin="0.1"))
     float ProjectileLifeSeconds = 8.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Projectile|Audio")
+    TObjectPtr<USoundBase> ImpactSound;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Projectile|Audio", meta=(ClampMin="0.0", ClampMax="2.0"))
+    float ImpactSoundVolume = 1.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|Projectile|Debug")
     bool bShowDebugTrail = true;
