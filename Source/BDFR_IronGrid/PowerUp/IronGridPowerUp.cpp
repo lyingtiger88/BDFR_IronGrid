@@ -8,6 +8,7 @@
 #include "PaperSpriteComponent.h"
 #include "Tank/IronGridTankPawn.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Sound/SoundBase.h"
 
 AIronGridPowerUp::AIronGridPowerUp()
 {
