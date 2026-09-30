@@ -1,0 +1,99 @@
+#include "Weapon/IronGridProjectile.h"
+
+#include "Components/SphereComponent.h"
+#include "GameFramework/DamageType.h"
+#include "GameFramework/ProjectileMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
+
+AIronGridProjectile::AIronGridProjectile()
+{
+    PrimaryActorTick.bCanEverTick = false;
+
+    bReplicates = true;
+    SetReplicateMovement(true);
+
+    Collision = CreateDefaultSubobject<USphereComponent>(TEXT("Collision"));
+    SetRootComponent(Collision);
+
+    Collision->InitSphereRadius(8.0f);
+    Collision->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    Collision->SetCollisionObjectType(ECC_WorldDynamic);
+    Collision->SetCollisionResponseToAllChannels(ECR_Block);
+    Collision->SetNotifyRigidBodyCollision(true);
+    Collision->OnComponentHit.AddDynamic(this, &AIronGridProjectile::HandleProjectileHit);
+
+    ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
+    ProjectileMovement->UpdatedComponent = Collision;
+    ProjectileMovement->InitialSpeed = LaunchSpeed;
+    ProjectileMovement->MaxSpeed = LaunchSpeed;
+    ProjectileMovement->ProjectileGravityScale = GravityScale;
+    ProjectileMovement->bRotationFollowsVelocity = true;
+    ProjectileMovement->bShouldBounce = false;
+}
+
+void AIronGridProjectile::BeginPlay()
+{
+    Super::BeginPlay();
+
+    SetLifeSpan(ProjectileLifeSeconds);
+
+    if (AActor* ProjectileOwner = GetOwner())
+    {
+        Collision->IgnoreActorWhenMoving(ProjectileOwner, true);
+    }
+}
+
+void AIronGridProjectile::InitializeProjectile(
+    float InSpeed,
+    float InDamage,
+    float InGravityScale)
+{
+    LaunchSpeed = FMath::Max(InSpeed, 1.0f);
+    Damage = FMath::Max(InDamage, 0.0f);
+    GravityScale = FMath::Max(InGravityScale, 0.0f);
+
+    if (ProjectileMovement)
+    {
+        ProjectileMovement->InitialSpeed = LaunchSpeed;
+        ProjectileMovement->MaxSpeed = LaunchSpeed;
+        ProjectileMovement->ProjectileGravityScale = GravityScale;
+        ProjectileMovement->Velocity = GetActorForwardVector() * LaunchSpeed;
+    }
+}
+
+void AIronGridProjectile::HandleProjectileHit(
+    UPrimitiveComponent* HitComponent,
+    AActor* OtherActor,
+    UPrimitiveComponent* OtherComponent,
+    FVector NormalImpulse,
+    const FHitResult& Hit)
+{
+    if (!HasAuthority())
+    {
+        return;
+    }
+
+    if (OtherActor && OtherActor != this && OtherActor != GetOwner())
+    {
+        const FVector ShotDirection = GetVelocity().GetSafeNormal();
+
+        UGameplayStatics::ApplyPointDamage(
+            OtherActor,
+            Damage,
+            ShotDirection,
+            Hit,
+            GetInstigatorController(),
+            this,
+            UDamageType::StaticClass());
+    }
+
+    MulticastImpactFX(Hit.ImpactPoint, Hit.ImpactNormal);
+    Destroy();
+}
+
+void AIronGridProjectile::MulticastImpactFX_Implementation(
+    FVector ImpactPoint,
+    FVector ImpactNormal)
+{
+    OnImpactFX(ImpactPoint, ImpactNormal);
+}
