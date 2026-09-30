@@ -1,6 +1,7 @@
 #include "Tank/IronGridTankPawn.h"
 
 #include "Camera/CameraComponent.h"
+#include "Components/AudioComponent.h"
 #include "Components/InputComponent.h"
 #include "Components/SceneComponent.h"
 #include "DrawDebugHelpers.h"
@@ -60,6 +61,18 @@ AIronGridTankPawn::AIronGridTankPawn()
     TopDownCamera->ProjectionMode = ECameraProjectionMode::Orthographic;
     TopDownCamera->OrthoWidth = FixedOrthoWidth;
 
+    EngineAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("EngineAudio"));
+    EngineAudioComponent->SetupAttachment(TankRoot);
+    EngineAudioComponent->bAutoActivate = false;
+
+    TrackAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("TrackAudio"));
+    TrackAudioComponent->SetupAttachment(TankRoot);
+    TrackAudioComponent->bAutoActivate = false;
+
+    TurretAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("TurretAudio"));
+    TurretAudioComponent->SetupAttachment(TurretPivot);
+    TurretAudioComponent->bAutoActivate = false;
+
     AutoPossessPlayer = EAutoReceiveInput::Player0;
 }
 
@@ -83,6 +96,29 @@ void AIronGridTankPawn::BeginPlay()
         CurrentAmmoInMagazine = FMath::Max(MagazineSize, 1);
         ReserveAmmo = FMath::Max(StartingReserveAmmo, 0);
         bReloading = false;
+    }
+
+    if (EngineAudioComponent && EngineLoopSound)
+    {
+        EngineAudioComponent->SetSound(EngineLoopSound);
+        EngineAudioComponent->SetVolumeMultiplier(EngineVolume);
+        EngineAudioComponent->SetPitchMultiplier(EngineIdlePitch);
+        EngineAudioComponent->Play();
+    }
+
+    if (TrackAudioComponent && TrackLoopSound)
+    {
+        TrackAudioComponent->SetSound(TrackLoopSound);
+        TrackAudioComponent->SetVolumeMultiplier(0.0f);
+        TrackAudioComponent->SetPitchMultiplier(TrackMinPitch);
+        TrackAudioComponent->Play();
+    }
+
+    if (TurretAudioComponent && TurretLoopSound)
+    {
+        TurretAudioComponent->SetSound(TurretLoopSound);
+        TurretAudioComponent->SetVolumeMultiplier(0.0f);
+        TurretAudioComponent->Play();
     }
 
     ApplyCameraModeImmediate();
@@ -109,6 +145,7 @@ void AIronGridTankPawn::Tick(float DeltaSeconds)
     UpdateTrackedMovement(DeltaSeconds);
     UpdateTurret(DeltaSeconds);
     UpdateWeaponFeedback(DeltaSeconds);
+    UpdateAudio(DeltaSeconds);
     UpdateCamera(DeltaSeconds);
 }
 
@@ -362,13 +399,14 @@ void AIronGridTankPawn::StartReload()
     }
 
     bReloading = true;
+    MulticastReloadStartedAudio();
     OnReloadStarted();
 
     GetWorldTimerManager().SetTimer(
         ReloadTimerHandle,
         this,
         &AIronGridTankPawn::CompleteReload,
-        ReloadDuration,
+        FMath::Max(ReloadDuration * ActiveReloadMultiplier, 0.15f),
         false);
 }
 
@@ -388,6 +426,7 @@ void AIronGridTankPawn::CompleteReload()
     ReserveAmmo -= AmmoToLoad;
     bReloading = false;
 
+    MulticastReloadFinishedAudio();
     OnReloadFinished();
 }
 
@@ -438,6 +477,14 @@ void AIronGridTankPawn::MulticastMuzzleFX_Implementation()
     }
 #endif
 
+    if (CannonFireSound && GetWorld())
+    {
+        UGameplayStatics::PlaySoundAtLocation(
+            this,
+            CannonFireSound,
+            Muzzle ? Muzzle->GetComponentLocation() : GetActorLocation());
+    }
+
     OnWeaponFired();
 }
 
@@ -473,6 +520,158 @@ void AIronGridTankPawn::UpdateWeaponFeedback(float DeltaSeconds)
             0.0f,
             DeltaSeconds,
             CameraRecoilReturnSpeed);
+}
+
+void AIronGridTankPawn::AddReserveAmmo(int32 Amount)
+{
+    if (!HasAuthority() || Amount <= 0)
+    {
+        return;
+    }
+
+    ReserveAmmo += Amount;
+}
+
+void AIronGridTankPawn::ApplySpeedBoost(float Multiplier, float Duration)
+{
+    if (!HasAuthority())
+    {
+        return;
+    }
+
+    ActiveSpeedMultiplier = FMath::Max(Multiplier, 1.0f);
+
+    GetWorldTimerManager().ClearTimer(SpeedBoostTimerHandle);
+
+    if (Duration > 0.0f)
+    {
+        GetWorldTimerManager().SetTimer(
+            SpeedBoostTimerHandle,
+            this,
+            &AIronGridTankPawn::ClearSpeedBoost,
+            Duration,
+            false);
+    }
+}
+
+void AIronGridTankPawn::ApplyReloadBoost(float ReloadTimeMultiplier, float Duration)
+{
+    if (!HasAuthority())
+    {
+        return;
+    }
+
+    ActiveReloadMultiplier =
+        FMath::Clamp(ReloadTimeMultiplier, 0.20f, 1.0f);
+
+    GetWorldTimerManager().ClearTimer(ReloadBoostTimerHandle);
+
+    if (Duration > 0.0f)
+    {
+        GetWorldTimerManager().SetTimer(
+            ReloadBoostTimerHandle,
+            this,
+            &AIronGridTankPawn::ClearReloadBoost,
+            Duration,
+            false);
+    }
+}
+
+void AIronGridTankPawn::ApplyRepairPowerUp(float RepairAmount)
+{
+    if (!HasAuthority() || RepairAmount <= 0.0f)
+    {
+        return;
+    }
+
+    OnRepairPowerUp(RepairAmount);
+}
+
+void AIronGridTankPawn::ClearSpeedBoost()
+{
+    ActiveSpeedMultiplier = 1.0f;
+}
+
+void AIronGridTankPawn::ClearReloadBoost()
+{
+    ActiveReloadMultiplier = 1.0f;
+}
+
+void AIronGridTankPawn::MulticastReloadStartedAudio_Implementation()
+{
+    if (ReloadStartSound && GetWorld())
+    {
+        UGameplayStatics::PlaySoundAtLocation(
+            this,
+            ReloadStartSound,
+            GetActorLocation());
+    }
+}
+
+void AIronGridTankPawn::MulticastReloadFinishedAudio_Implementation()
+{
+    if (ReloadCompleteSound && GetWorld())
+    {
+        UGameplayStatics::PlaySoundAtLocation(
+            this,
+            ReloadCompleteSound,
+            GetActorLocation());
+    }
+}
+
+void AIronGridTankPawn::UpdateAudio(float DeltaSeconds)
+{
+    const float EffectiveMaxSpeed =
+        FMath::Max(MaxMoveSpeed * ActiveSpeedMultiplier, 1.0f);
+
+    const float TrackActivity =
+        FMath::Clamp(
+            FMath::Max(
+                FMath::Abs(CurrentLeftTrackSpeed),
+                FMath::Abs(CurrentRightTrackSpeed)) /
+            EffectiveMaxSpeed,
+            0.0f,
+            1.0f);
+
+    const float ForwardSpeedAlpha =
+        FMath::Clamp(
+            FMath::Abs(CurrentForwardSpeed) /
+            EffectiveMaxSpeed,
+            0.0f,
+            1.0f);
+
+    if (EngineAudioComponent && EngineLoopSound)
+    {
+        EngineAudioComponent->SetPitchMultiplier(
+            FMath::Lerp(
+                EngineIdlePitch,
+                EngineMaxPitch,
+                FMath::Max(TrackActivity, ForwardSpeedAlpha)));
+
+        EngineAudioComponent->SetVolumeMultiplier(EngineVolume);
+    }
+
+    if (TrackAudioComponent && TrackLoopSound)
+    {
+        TrackAudioComponent->SetPitchMultiplier(
+            FMath::Lerp(
+                TrackMinPitch,
+                TrackMaxPitch,
+                TrackActivity));
+
+        TrackAudioComponent->SetVolumeMultiplier(
+            TrackVolume * TrackActivity);
+    }
+
+    if (TurretAudioComponent && TurretLoopSound)
+    {
+        const float TurretError = GetAimErrorDegrees();
+        const bool bTurretMoving =
+            TurretError > TurretAudioErrorThreshold;
+
+        TurretAudioComponent->SetVolumeMultiplier(
+            bTurretMoving ? TurretVolume : 0.0f);
+    }
 }
 
 void AIronGridTankPawn::MoveForward(float Value)
@@ -562,13 +761,19 @@ void AIronGridTankPawn::UpdateTrackedMovement(float DeltaSeconds)
     }
     else if (!bBrakeHeld)
     {
+        const float EffectiveMaxMoveSpeed =
+            MaxMoveSpeed * ActiveSpeedMultiplier;
+
+        const float EffectiveMaxReverseSpeed =
+            MaxReverseSpeed * ActiveSpeedMultiplier;
+
         const float BaseTrackSpeed =
             Throttle >= 0.0f
-                ? Throttle * MaxMoveSpeed
-                : Throttle * MaxReverseSpeed;
+                ? Throttle * EffectiveMaxMoveSpeed
+                : Throttle * EffectiveMaxReverseSpeed;
 
         const float SpeedReference =
-            FMath::Max(MaxMoveSpeed, 1.0f);
+            FMath::Max(EffectiveMaxMoveSpeed, 1.0f);
 
         const float SpeedAlpha =
             FMath::Clamp(
@@ -584,7 +789,7 @@ void AIronGridTankPawn::UpdateTrackedMovement(float DeltaSeconds)
 
         const float SteeringDifferential =
             Steering *
-            MaxMoveSpeed *
+            EffectiveMaxMoveSpeed *
             MovingSteeringStrength *
             SteeringScale;
 
@@ -597,14 +802,14 @@ void AIronGridTankPawn::UpdateTrackedMovement(float DeltaSeconds)
         DesiredLeftTrackSpeed =
             FMath::Clamp(
                 DesiredLeftTrackSpeed,
-                -MaxReverseSpeed,
-                MaxMoveSpeed);
+                -EffectiveMaxReverseSpeed,
+                EffectiveMaxMoveSpeed);
 
         DesiredRightTrackSpeed =
             FMath::Clamp(
                 DesiredRightTrackSpeed,
-                -MaxReverseSpeed,
-                MaxMoveSpeed);
+                -EffectiveMaxReverseSpeed,
+                EffectiveMaxMoveSpeed);
     }
 
     CurrentLeftTrackSpeed =
