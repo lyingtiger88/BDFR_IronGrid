@@ -30,6 +30,7 @@ The repository currently includes:
 - Tracked Movement v2 with acceleration, braking, independent track speeds, differential steering, and pivot turns
 - Fixed and Speed Reactive camera modes
 - Runtime camera settings
+- Closer default orthographic camera framing for improved tank readability
 - Pause menu on **P**
 - Camera controls inside the pause menu
 - Multiplayer-safe pause-menu behavior
@@ -37,7 +38,7 @@ The repository currently includes:
 - Reload / reserve-ammo system
 - Gravity-based shell trajectory and predicted ballistic impact reticle
 - Projectile sprite slot with automatic debug-visual fallback
-- Cannon visual recoil, camera recoil pulse, muzzle feedback, and impact feedback
+- Whole-tank cannon recoil, camera recoil pulse, muzzle feedback, and impact feedback
 
 The current milestone is **Weapons & Ballistics v1**. Next comes **Armor, Penetration & Module Damage**, followed by deeper **Network Replication** work.
 
@@ -222,7 +223,7 @@ The current milestone is **Weapons & Ballistics v1**. Next comes **Armor, Penetr
 - [x] Projectile actor
 - [x] Server-authoritative firing
 - [~] Muzzle flash: debug feedback + Blueprint production hook
-- [x] Visual turret recoil and camera recoil pulse
+- [x] Whole-tank recoil and camera recoil pulse
 - [x] Reload timing
 - [x] Basic ammunition inventory / reserve ammo
 - [ ] AP ammunition
