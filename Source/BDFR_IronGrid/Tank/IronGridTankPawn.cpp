@@ -4,11 +4,20 @@
 #include "Components/InputComponent.h"
 #include "Components/SceneComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
 #include "PaperSpriteComponent.h"
+#include "TimerManager.h"
+#include "Weapon/IronGridProjectile.h"
 
 AIronGridTankPawn::AIronGridTankPawn()
 {
     PrimaryActorTick.bCanEverTick = true;
+
+    bReplicates = true;
+    SetReplicateMovement(true);
+
+    ProjectileClass = AIronGridProjectile::StaticClass();
 
     TankRoot = CreateDefaultSubobject<USceneComponent>(TEXT("TankRoot"));
     SetRootComponent(TankRoot);
@@ -62,6 +71,10 @@ void AIronGridTankPawn::BeginPlay()
     DesiredAimWorldPoint = GetActorLocation() + GetActorForwardVector() * 1000.0f;
     PreviousActorLocation = GetActorLocation();
 
+    CurrentAmmoInMagazine = FMath::Max(MagazineSize, 1);
+    ReserveAmmo = FMath::Max(StartingReserveAmmo, 0);
+    bReloading = false;
+
     ApplyCameraModeImmediate();
 }
 
@@ -95,6 +108,8 @@ void AIronGridTankPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
     PlayerInputComponent->BindAxis(TEXT("TurnHull"), this, &AIronGridTankPawn::TurnHull);
     PlayerInputComponent->BindAction(TEXT("Brake"), IE_Pressed, this, &AIronGridTankPawn::BrakePressed);
     PlayerInputComponent->BindAction(TEXT("Brake"), IE_Released, this, &AIronGridTankPawn::BrakeReleased);
+    PlayerInputComponent->BindAction(TEXT("Fire"), IE_Pressed, this, &AIronGridTankPawn::FireWeapon);
+    PlayerInputComponent->BindAction(TEXT("Reload"), IE_Pressed, this, &AIronGridTankPawn::ReloadWeapon);
     PlayerInputComponent->BindAction(TEXT("ToggleCameraMode"), IE_Pressed, this, &AIronGridTankPawn::ToggleCameraMode);
 }
 
@@ -140,6 +155,203 @@ float AIronGridTankPawn::GetAimErrorDegrees() const
         FMath::Clamp(FVector::DotProduct(ToDesired, Actual), -1.0f, 1.0f);
 
     return FMath::RadiansToDegrees(FMath::Acos(Dot));
+}
+
+void AIronGridTankPawn::GetLifetimeReplicatedProps(
+    TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+    DOREPLIFETIME(AIronGridTankPawn, CurrentAmmoInMagazine);
+    DOREPLIFETIME(AIronGridTankPawn, ReserveAmmo);
+    DOREPLIFETIME(AIronGridTankPawn, bReloading);
+}
+
+FVector AIronGridTankPawn::GetPredictedBallisticImpactPoint() const
+{
+    if (!Muzzle || !GetWorld())
+    {
+        return GetActorLocation();
+    }
+
+    FPredictProjectilePathParams Params;
+    Params.StartLocation =
+        Muzzle->GetComponentLocation() +
+        FVector(0.0f, 0.0f, ProjectileSpawnHeight);
+
+    Params.LaunchVelocity =
+        Muzzle->GetForwardVector() *
+        MuzzleVelocity;
+
+    Params.bTraceWithCollision = true;
+    Params.ProjectileRadius = BallisticPredictionRadius;
+    Params.MaxSimTime = BallisticPredictionTime;
+    Params.SimFrequency = 20.0f;
+    Params.TraceChannel = ECC_Visibility;
+    Params.OverrideGravityZ =
+        GetWorld()->GetGravityZ() *
+        ProjectileGravityScale;
+
+    Params.ActorsToIgnore.Add(
+        const_cast<AIronGridTankPawn*>(this));
+
+    FPredictProjectilePathResult Result;
+    UGameplayStatics::PredictProjectilePath(
+        this,
+        Params,
+        Result);
+
+    if (Result.HitResult.bBlockingHit)
+    {
+        return Result.HitResult.ImpactPoint;
+    }
+
+    if (Result.PathData.Num() > 0)
+    {
+        return Result.PathData.Last().Location;
+    }
+
+    return Params.StartLocation;
+}
+
+void AIronGridTankPawn::FireWeapon()
+{
+    if (HasAuthority())
+    {
+        PerformFire();
+    }
+    else
+    {
+        ServerFireWeapon();
+    }
+}
+
+void AIronGridTankPawn::ServerFireWeapon_Implementation()
+{
+    PerformFire();
+}
+
+void AIronGridTankPawn::ReloadWeapon()
+{
+    if (HasAuthority())
+    {
+        StartReload();
+    }
+    else
+    {
+        ServerReloadWeapon();
+    }
+}
+
+void AIronGridTankPawn::ServerReloadWeapon_Implementation()
+{
+    StartReload();
+}
+
+void AIronGridTankPawn::PerformFire()
+{
+    if (!GetWorld() || !Muzzle || !ProjectileClass || bReloading)
+    {
+        return;
+    }
+
+    const float CurrentTime = GetWorld()->GetTimeSeconds();
+
+    if ((CurrentTime - LastFireTime) < FireInterval)
+    {
+        return;
+    }
+
+    if (CurrentAmmoInMagazine <= 0)
+    {
+        StartReload();
+        return;
+    }
+
+    const FVector SpawnLocation =
+        Muzzle->GetComponentLocation() +
+        FVector(0.0f, 0.0f, ProjectileSpawnHeight);
+
+    const FRotator SpawnRotation =
+        Muzzle->GetComponentRotation();
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.Owner = this;
+    SpawnParams.Instigator = this;
+    SpawnParams.SpawnCollisionHandlingOverride =
+        ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+    AIronGridProjectile* Projectile =
+        GetWorld()->SpawnActor<AIronGridProjectile>(
+            ProjectileClass,
+            SpawnLocation,
+            SpawnRotation,
+            SpawnParams);
+
+    if (!Projectile)
+    {
+        return;
+    }
+
+    Projectile->InitializeProjectile(
+        MuzzleVelocity,
+        ProjectileDamage,
+        ProjectileGravityScale);
+
+    --CurrentAmmoInMagazine;
+    LastFireTime = CurrentTime;
+
+    MulticastMuzzleFX();
+
+    if (CurrentAmmoInMagazine <= 0 && ReserveAmmo > 0)
+    {
+        StartReload();
+    }
+}
+
+void AIronGridTankPawn::StartReload()
+{
+    if (!GetWorld() ||
+        bReloading ||
+        CurrentAmmoInMagazine >= MagazineSize ||
+        ReserveAmmo <= 0)
+    {
+        return;
+    }
+
+    bReloading = true;
+    OnReloadStarted();
+
+    GetWorldTimerManager().SetTimer(
+        ReloadTimerHandle,
+        this,
+        &AIronGridTankPawn::CompleteReload,
+        ReloadDuration,
+        false);
+}
+
+void AIronGridTankPawn::CompleteReload()
+{
+    const int32 NeededAmmo =
+        FMath::Max(
+            MagazineSize - CurrentAmmoInMagazine,
+            0);
+
+    const int32 AmmoToLoad =
+        FMath::Min(
+            NeededAmmo,
+            ReserveAmmo);
+
+    CurrentAmmoInMagazine += AmmoToLoad;
+    ReserveAmmo -= AmmoToLoad;
+    bReloading = false;
+
+    OnReloadFinished();
+}
+
+void AIronGridTankPawn::MulticastMuzzleFX_Implementation()
+{
+    OnWeaponFired();
 }
 
 void AIronGridTankPawn::MoveForward(float Value)
