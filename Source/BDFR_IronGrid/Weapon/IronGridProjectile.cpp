@@ -1,9 +1,11 @@
 #include "Weapon/IronGridProjectile.h"
 
 #include "Components/SphereComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "GameFramework/DamageType.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "UObject/ConstructorHelpers.h"
 
 AIronGridProjectile::AIronGridProjectile()
 {
@@ -19,8 +21,23 @@ AIronGridProjectile::AIronGridProjectile()
     Collision->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
     Collision->SetCollisionObjectType(ECC_WorldDynamic);
     Collision->SetCollisionResponseToAllChannels(ECR_Block);
+    Collision->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
     Collision->SetNotifyRigidBodyCollision(true);
     Collision->OnComponentHit.AddDynamic(this, &AIronGridProjectile::HandleProjectileHit);
+
+    DebugVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DebugVisual"));
+    DebugVisual->SetupAttachment(Collision);
+    DebugVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    DebugVisual->SetCastShadow(false);
+    DebugVisual->SetRelativeScale3D(FVector(0.08f));
+
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMesh(
+        TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+
+    if (SphereMesh.Succeeded())
+    {
+        DebugVisual->SetStaticMesh(SphereMesh.Object);
+    }
 
     ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
     ProjectileMovement->UpdatedComponent = Collision;
