@@ -595,9 +595,20 @@ void AIronGridTankPawn::MulticastReloadFinishedAudio_Implementation()
 
 void AIronGridTankPawn::InitializeAudioComponents()
 {
+    // Blueprint authors can assign loop sounds either through the dedicated
+    // IronGrid|Audio properties or directly on the inherited AudioComponents.
+    // Never overwrite a component-assigned sound with nullptr.
     if (EngineAudioComponent)
     {
-        EngineAudioComponent->SetSound(EngineLoopSound);
+        if (!EngineLoopSound)
+        {
+            EngineLoopSound = EngineAudioComponent->Sound;
+        }
+        else
+        {
+            EngineAudioComponent->SetSound(EngineLoopSound);
+        }
+
         EngineAudioComponent->SetVolumeMultiplier(EngineVolume);
         EngineAudioComponent->SetPitchMultiplier(EngineIdlePitch);
 
@@ -609,7 +620,15 @@ void AIronGridTankPawn::InitializeAudioComponents()
 
     if (TrackAudioComponent)
     {
-        TrackAudioComponent->SetSound(TrackLoopSound);
+        if (!TrackLoopSound)
+        {
+            TrackLoopSound = TrackAudioComponent->Sound;
+        }
+        else
+        {
+            TrackAudioComponent->SetSound(TrackLoopSound);
+        }
+
         TrackAudioComponent->SetVolumeMultiplier(0.0f);
         TrackAudioComponent->SetPitchMultiplier(TrackMinPitch);
 
@@ -621,7 +640,15 @@ void AIronGridTankPawn::InitializeAudioComponents()
 
     if (TurretAudioComponent)
     {
-        TurretAudioComponent->SetSound(TurretLoopSound);
+        if (!TurretLoopSound)
+        {
+            TurretLoopSound = TurretAudioComponent->Sound;
+        }
+        else
+        {
+            TurretAudioComponent->SetSound(TurretLoopSound);
+        }
+
         TurretAudioComponent->SetVolumeMultiplier(0.0f);
 
         if (TurretLoopSound)
@@ -634,8 +661,8 @@ void AIronGridTankPawn::InitializeAudioComponents()
     if (bShowAudioDebugMessages && IsLocallyControlled() && GEngine)
     {
         const FString AudioState = FString::Printf(
-            TEXT("PAWN:%s | AUDIO  Engine:%s Tracks:%s Turret:%s Cannon:%s Reload:%s/%s"),
-            *GetClass()->GetName(),
+            TEXT("PAWN:%s | AUDIO Engine:%s Tracks:%s Turret:%s Cannon:%s Reload:%s/%s"),
+            *GetClass()->GetPathName(),
             EngineLoopSound ? TEXT("OK") : TEXT("NONE"),
             TrackLoopSound ? TEXT("OK") : TEXT("NONE"),
             TurretLoopSound ? TEXT("OK") : TEXT("NONE"),
@@ -645,7 +672,7 @@ void AIronGridTankPawn::InitializeAudioComponents()
 
         GEngine->AddOnScreenDebugMessage(
             -1,
-            6.0f,
+            10.0f,
             FColor::Cyan,
             AudioState);
     }
