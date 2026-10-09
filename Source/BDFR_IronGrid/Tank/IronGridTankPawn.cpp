@@ -634,7 +634,8 @@ void AIronGridTankPawn::InitializeAudioComponents()
     if (bShowAudioDebugMessages && IsLocallyControlled() && GEngine)
     {
         const FString AudioState = FString::Printf(
-            TEXT("AUDIO SLOTS  Engine:%s  Tracks:%s  Turret:%s  Cannon:%s  Reload:%s/%s"),
+            TEXT("PAWN:%s | AUDIO  Engine:%s Tracks:%s Turret:%s Cannon:%s Reload:%s/%s"),
+            *GetClass()->GetName(),
             EngineLoopSound ? TEXT("OK") : TEXT("NONE"),
             TrackLoopSound ? TEXT("OK") : TEXT("NONE"),
             TurretLoopSound ? TEXT("OK") : TEXT("NONE"),
