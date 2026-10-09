@@ -118,3 +118,44 @@ For each Blueprint:
 5. tune amount/multiplier/duration.
 
 These Blueprints can be placed directly in a map or spawned later by a battle-royale loot/power-up spawner.
+
+
+## Tank pickup collision
+
+The tank now owns a dedicated native overlap volume:
+
+`TankPickupCollision`
+
+Default setup:
+
+```
+Shape: Box
+Extent: X=75, Y=55, Z=32
+Relative Z: 28
+Collision Enabled: Query Only
+Object Type: Pawn
+World Dynamic: Overlap
+Generate Overlap Events: enabled
+```
+
+This component is intentionally separate from movement/world blocking collision. It exists only to make power-up and loot overlap detection reliable without disturbing the current prototype movement or Landscape.
+
+The current power-up pickup sphere is `WorldDynamic` and overlaps `Pawn`, so the two components form a valid overlap pair automatically.
+
+### Blueprint tuning
+
+Open the tank Blueprint and select:
+
+`TankPickupCollision`
+
+Resize the Box Extent so it roughly covers the hull footprint. Avoid making it much larger than the tank or pickups will be collected from too far away.
+
+### Quick test
+
+1. Place `BP_PowerUp_Ammo` in front of the tank.
+2. Run PIE.
+3. Drive the hull through the pickup.
+4. The pickup should disappear and its pickup sound should play.
+5. Reserve ammo should increase by `AmmoAmount`.
+
+Speed and Reload pickups can be tested the same way by observing the temporary movement/reload change.
