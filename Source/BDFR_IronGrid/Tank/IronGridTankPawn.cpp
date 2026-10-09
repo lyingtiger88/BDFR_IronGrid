@@ -2,6 +2,7 @@
 
 #include "Camera/CameraComponent.h"
 #include "Components/AudioComponent.h"
+#include "Components/BoxComponent.h"
 #include "Components/InputComponent.h"
 #include "Components/SceneComponent.h"
 #include "DrawDebugHelpers.h"
@@ -30,6 +31,16 @@ AIronGridTankPawn::AIronGridTankPawn()
 
     TankRoot = CreateDefaultSubobject<USceneComponent>(TEXT("TankRoot"));
     SetRootComponent(TankRoot);
+
+    TankPickupCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("TankPickupCollision"));
+    TankPickupCollision->SetupAttachment(TankRoot);
+    TankPickupCollision->SetBoxExtent(FVector(75.0f, 55.0f, 32.0f));
+    TankPickupCollision->SetRelativeLocation(FVector(0.0f, 0.0f, 28.0f));
+    TankPickupCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    TankPickupCollision->SetCollisionObjectType(ECC_Pawn);
+    TankPickupCollision->SetCollisionResponseToAllChannels(ECR_Ignore);
+    TankPickupCollision->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+    TankPickupCollision->SetGenerateOverlapEvents(true);
 
     HullVisualRoot = CreateDefaultSubobject<USceneComponent>(TEXT("HullVisualRoot"));
     HullVisualRoot->SetupAttachment(TankRoot);
