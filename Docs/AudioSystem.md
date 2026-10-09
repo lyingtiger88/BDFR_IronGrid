@@ -101,3 +101,17 @@ Content/Audio/
 ```
 
 Final production sounds are not stored in the repository yet; the runtime slots and playback logic are ready for imported WAV/SoundCue/MetaSound assets.
+
+
+## Runtime audio test
+
+Press **K** while controlling the tank in PIE to cycle through assigned tank audio slots.
+
+The old **F8** test binding was removed because Unreal Editor reserves F8 for PIE Eject/Possess behavior.
+
+If the on-screen message says `AUDIO PLAY: ...` but nothing is audible, verify:
+
+- Editor Preferences > Play > Enable Game Sounds = enabled
+- Standalone sound is not disabled with `-nosound`
+- the active Windows output device is correct
+- the PIE audio device is functioning
