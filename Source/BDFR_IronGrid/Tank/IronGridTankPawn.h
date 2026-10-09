@@ -6,6 +6,7 @@
 
 class AIronGridProjectile;
 class UAudioComponent;
+class UBoxComponent;
 class UCameraComponent;
 class UPaperSpriteComponent;
 class USceneComponent;
@@ -139,6 +140,12 @@ protected:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Tank")
     TObjectPtr<USceneComponent> TankRoot;
+
+    // Dedicated query-only overlap volume used by loot/power-up pickups.
+    // Kept separate from movement/world blocking so it cannot interfere
+    // with the current prototype tank locomotion or Landscape.
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Tank|Collision")
+    TObjectPtr<UBoxComponent> TankPickupCollision;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|Tank")
     TObjectPtr<USceneComponent> HullVisualRoot;
