@@ -123,6 +123,11 @@ private:
         const TArray<TObjectPtr<UPaperSprite>>& Sprites,
         FRandomStream& RandomStream) const;
 
+    UPaperSprite* PickSpriteByNameTokens(
+        const TArray<TObjectPtr<UPaperSprite>>& Sprites,
+        const TArray<FString>& PreferredTokens,
+        FRandomStream& RandomStream) const;
+
     void SpawnSprite(
         UPaperSprite* Sprite,
         const FVector& Location,
