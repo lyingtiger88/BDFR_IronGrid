@@ -551,6 +551,41 @@ UPaperSprite* AIronGridWorldBuilder::PickSprite(
     return nullptr;
 }
 
+UPaperSprite* AIronGridWorldBuilder::PickSpriteByNameTokens(
+    const TArray<TObjectPtr<UPaperSprite>>& Sprites,
+    const TArray<FString>& PreferredTokens,
+    FRandomStream& RandomStream) const
+{
+    TArray<UPaperSprite*> Candidates;
+
+    for (UPaperSprite* Sprite : Sprites)
+    {
+        if (!IsValid(Sprite))
+        {
+            continue;
+        }
+
+        const FString Name = Sprite->GetName();
+
+        for (const FString& Token : PreferredTokens)
+        {
+            if (Name.Contains(Token, ESearchCase::IgnoreCase))
+            {
+                Candidates.Add(Sprite);
+                break;
+            }
+        }
+    }
+
+    if (Candidates.IsEmpty())
+    {
+        return PickSprite(Sprites, RandomStream);
+    }
+
+    return Candidates[
+        RandomStream.RandRange(0, Candidates.Num() - 1)];
+}
+
 void AIronGridWorldBuilder::SpawnSprite(
     UPaperSprite* Sprite,
     const FVector& Location,
@@ -742,9 +777,17 @@ void AIronGridWorldBuilder::BuildEnvironment()
                 -HalfSize.Y + (static_cast<float>(Cell.GridY) + 0.5f) * SafeCellSize,
                 20.0f);
 
-        auto SpawnGround = [&](const TArray<TObjectPtr<UPaperSprite>>& Sprites, FName Tag)
+        auto SpawnGround = [&](
+            const TArray<TObjectPtr<UPaperSprite>>& Sprites,
+            FName Tag,
+            const TArray<FString>& PreferredTokens = TArray<FString>())
         {
-            if (UPaperSprite* GroundSprite = PickSprite(Sprites, RandomStream))
+            UPaperSprite* GroundSprite =
+                PreferredTokens.IsEmpty()
+                    ? PickSprite(Sprites, RandomStream)
+                    : PickSpriteByNameTokens(Sprites, PreferredTokens, RandomStream);
+
+            if (GroundSprite)
             {
                 FActorSpawnParameters Params;
                 Params.Owner = this;
@@ -774,6 +817,9 @@ void AIronGridWorldBuilder::BuildEnvironment()
                             SafeCellSize / ReferenceSize;
                     }
 
+                    GroundScale *=
+                        EnvironmentPalette->GroundTileOverlapScale;
+
                     GroundActor->Configure(
                         GroundSprite,
                         EnvironmentPalette->GroundSpriteRotation,
@@ -800,10 +846,24 @@ void AIronGridWorldBuilder::BuildEnvironment()
 
         // Every non-road/non-water cell receives a continuous land base.
         // Forest dressing is then layered above this ground tile.
-        SpawnGround(EnvironmentPalette->ClearingGround, TEXT("IG_LandBase"));
+        const TArray<FString> ForestGroundTokens =
+        {
+            TEXT("Grass"),
+            TEXT("ForestFloor")
+        };
+
+        const TArray<FString> ClearingGroundTokens =
+        {
+            TEXT("Clearing"),
+            TEXT("Dirt")
+        };
 
         if (Cell.Biome == EIronGridBiomeType::Clearing)
         {
+            SpawnGround(
+                EnvironmentPalette->ClearingGround,
+                TEXT("IG_Clearing"),
+                ClearingGroundTokens);
 
             if (RandomStream.FRand() <= EnvironmentPalette->RockChancePerCell)
             {
@@ -827,6 +887,11 @@ void AIronGridWorldBuilder::BuildEnvironment()
 
             continue;
         }
+
+        SpawnGround(
+            EnvironmentPalette->ClearingGround,
+            TEXT("IG_ForestBase"),
+            ForestGroundTokens);
 
         const bool bDense =
             Cell.Biome == EIronGridBiomeType::DenseForest;
