@@ -591,6 +591,16 @@ void AIronGridWorldBuilder::BuildEnvironment()
 
         FRandomStream RandomStream(CellSeed);
 
+        // Biome classification/decoration may use jitter, but ground tiles must
+        // remain locked to the exact planning-cell center or visible seams appear.
+        const FVector2D HalfSize = MapSize * 0.5f;
+        const FVector ExactCellCenter =
+            GetActorLocation() +
+            FVector(
+                -HalfSize.X + (static_cast<float>(Cell.GridX) + 0.5f) * SafeCellSize,
+                -HalfSize.Y + (static_cast<float>(Cell.GridY) + 0.5f) * SafeCellSize,
+                20.0f);
+
         auto SpawnGround = [&](const TArray<TObjectPtr<UPaperSprite>>& Sprites, FName Tag)
         {
             if (UPaperSprite* GroundSprite = PickSprite(Sprites, RandomStream))
@@ -602,7 +612,7 @@ void AIronGridWorldBuilder::BuildEnvironment()
 
                 AIronGridGeneratedSpriteActor* GroundActor =
                     GetWorld()->SpawnActor<AIronGridGeneratedSpriteActor>(
-                        Cell.WorldLocation +
+                        ExactCellCenter +
                         FVector(0.0f, 0.0f, EnvironmentPalette->GroundZOffset),
                         FRotator::ZeroRotator,
                         Params);
@@ -664,7 +674,7 @@ void AIronGridWorldBuilder::BuildEnvironment()
 
                     SpawnSprite(
                         Rock,
-                        Cell.WorldLocation + Offset,
+                        ExactCellCenter + Offset,
                         RandomStream,
                         TEXT("IG_Rock"));
 
@@ -715,7 +725,7 @@ void AIronGridWorldBuilder::BuildEnvironment()
 
             SpawnSprite(
                 Tree,
-                Cell.WorldLocation + Offset,
+                ExactCellCenter + Offset,
                 RandomStream,
                 bDense ? TEXT("IG_DenseTree") : TEXT("IG_LightTree"));
 
@@ -733,7 +743,7 @@ void AIronGridWorldBuilder::BuildEnvironment()
 
                 SpawnSprite(
                     Bush,
-                    Cell.WorldLocation + Offset,
+                    ExactCellCenter + Offset,
                     RandomStream,
                     TEXT("IG_Bush"));
 
@@ -752,7 +762,7 @@ void AIronGridWorldBuilder::BuildEnvironment()
 
                 SpawnSprite(
                     Rock,
-                    Cell.WorldLocation + Offset,
+                    ExactCellCenter + Offset,
                     RandomStream,
                     TEXT("IG_Rock"));
 
