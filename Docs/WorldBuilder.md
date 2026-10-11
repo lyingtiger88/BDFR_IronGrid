@@ -1,58 +1,105 @@
 # IRON GRID — World Builder
 
-## Phase 1 — Deterministic foundation
+## Current implementation
 
-Native classes:
+The World Builder now has a working deterministic biome planner, manual/hybrid override zones, and real Paper2D environment spawning.
+
+### Main classes
 
 - `AIronGridWorldBuilder`
 - `UIronGridEnvironmentProfile`
+- `UIronGridEnvironmentPalette`
+- `AIronGridWorldZone`
+- `AIronGridGeneratedSpriteActor`
 
-The first phase intentionally does not spawn environment art yet. It establishes the deterministic map-generation foundation that later forest, road, river and POI generators will use.
+## Biomes
 
-### World Builder actor
+The hidden planning grid classifies cells into:
 
-Place `IronGridWorldBuilder` in the level.
+- Dense Forest
+- Light Forest
+- Clearing
+- Road
+- Water
 
-Main properties:
+Forest shapes use layered Perlin noise. Road and river paths are deterministic meandering bands. Clearings are seeded areas. The visible result is jittered and does not need to look grid-based.
 
-- BuilderMode: Auto / Manual / Hybrid
-- Seed
-- MapSize
-- PreviewCellSize
-- EnvironmentProfile
-
-Editor buttons:
+## World Builder buttons
 
 - Generate Preview
+- Build Environment
+- Clear Generated Environment
 - Clear Preview
 - Randomize Seed
 - Validate Builder
 
-Using the same Seed and settings always generates the same preview points.
+## Environment Profile
 
-### Environment Profile
+Create a Data Asset of class `IronGridEnvironmentProfile`.
 
-Create a Data Asset using `IronGridEnvironmentProfile`.
-
-Suggested first forest profile:
+Recommended forest prototype:
 
 - ForestDensity = 0.65
 - ClearingRatio = 0.20
 - RoadDensity = 0.35
 - WaterAmount = 0.20
-- CoverDensity = 0.55
-- DecorationDensity = 0.65
+- ForestNoiseScale = 0.00125
+- DenseForestThreshold = 0.62
+- LightForestThreshold = 0.36
+- BaseRoadWidth = 420
+- BaseRiverWidth = 520
 - MinimumTankCorridorWidth = 260
 - MinimumClearingRadius = 500
+- ClearingCount = 5
 
-### What Phase 2 will add
+## Environment Palette
 
-Phase 2 converts these deterministic sample cells into biome data:
+Create a Data Asset of class `IronGridEnvironmentPalette`.
 
-- Dense Forest
-- Light Forest
-- Clearing
-- Road reservation
-- Water reservation
+Assign the imported PaperSprites to:
 
-No visible square/grid pattern will remain in the final environment. The grid is only a hidden planning structure.
+- DenseForestTrees
+- LightForestTrees
+- Bushes
+- Rocks
+- ClearingGround
+- RoadGround
+- WaterGround
+
+The palette also controls tree counts, bush/rock probabilities, sprite scale and sprite rotation.
+
+## Manual / Hybrid editing
+
+Place `IronGridWorldZone` actors in the level.
+
+Resize the zone box and set:
+
+- BiomeOverride
+- Priority
+- bExcludeGeneration
+
+Modes:
+
+- Auto: ignores manual zones.
+- Hybrid: generates automatically, then zones override selected regions.
+- Manual: starts as Clearing and only zones define special biome areas.
+
+Higher Priority wins when zones overlap.
+
+## First practical test
+
+1. Place `IronGridWorldBuilder`.
+2. Assign EnvironmentProfile and EnvironmentPalette.
+3. Use MapSize = 10000 x 10000 and PreviewCellSize = 500.
+4. Press Generate Preview.
+5. Confirm biome colors:
+   - dark green = dense forest
+   - light green = light forest
+   - tan = clearing
+   - brown = road
+   - blue = water
+6. Press Build Environment.
+7. The assigned PaperSprites will be spawned deterministically into the level.
+8. Use Clear Generated Environment before rebuilding.
+
+The next milestone should replace the prototype road/water cell art with spline-aware connected road/river pieces and add tank traversability validation.
