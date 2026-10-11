@@ -536,7 +536,8 @@ void AIronGridWorldBuilder::SpawnSprite(
             EnvironmentPalette->MaxSpriteScale);
 
     const float Scale =
-        RandomStream.FRandRange(MinScale, MaxScale);
+        RandomStream.FRandRange(MinScale, MaxScale) *
+        EnvironmentPalette->GeneratedSpriteScaleMultiplier;
 
     FRotator Rotation = EnvironmentPalette->SpriteRotation;
 
@@ -608,10 +609,24 @@ void AIronGridWorldBuilder::BuildEnvironment()
 
                 if (GroundActor)
                 {
+                    float GroundScale =
+                        EnvironmentPalette->GroundSpriteScale;
+
+                    if (EnvironmentPalette->bAutoScaleGroundToCell)
+                    {
+                        const float ReferenceSize =
+                            FMath::Max(
+                                EnvironmentPalette->GroundReferenceWorldSize,
+                                1.0f);
+
+                        GroundScale *=
+                            SafeCellSize / ReferenceSize;
+                    }
+
                     GroundActor->Configure(
                         GroundSprite,
                         EnvironmentPalette->GroundSpriteRotation,
-                        EnvironmentPalette->GroundSpriteScale,
+                        GroundScale,
                         Tag);
 
                     ++SpawnedCount;
@@ -631,9 +646,12 @@ void AIronGridWorldBuilder::BuildEnvironment()
             continue;
         }
 
+        // Every non-road/non-water cell receives a continuous land base.
+        // Forest dressing is then layered above this ground tile.
+        SpawnGround(EnvironmentPalette->ClearingGround, TEXT("IG_LandBase"));
+
         if (Cell.Biome == EIronGridBiomeType::Clearing)
         {
-            SpawnGround(EnvironmentPalette->ClearingGround, TEXT("IG_Clearing"));
 
             if (RandomStream.FRand() <= EnvironmentPalette->RockChancePerCell)
             {
@@ -755,6 +773,14 @@ void AIronGridWorldBuilder::BuildEnvironment()
                 SpawnedCount));
     }
 #endif
+
+    if (bHidePreviewAfterBuild)
+    {
+        if (UWorld* World = GetWorld())
+        {
+            FlushPersistentDebugLines(World);
+        }
+    }
 }
 
 void AIronGridWorldBuilder::ClearGeneratedEnvironment()
