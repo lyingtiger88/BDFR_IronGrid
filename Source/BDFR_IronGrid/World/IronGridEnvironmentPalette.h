@@ -66,6 +66,9 @@ public:
     float SpriteZOffset = 5.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Ground")
+    bool bAutoScaleGroundToCell = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Ground")
     float GroundSpriteScale = 1.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Ground")
