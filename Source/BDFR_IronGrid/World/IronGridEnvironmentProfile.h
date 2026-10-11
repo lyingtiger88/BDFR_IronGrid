@@ -51,4 +51,27 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Gameplay", meta=(ClampMin="0", ClampMax="16"))
     int32 ClearingCount = 5;
+
+    // Organic decoration is intentionally independent from the hidden planning
+    // grid so the final forest does not reveal square cells.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Organic", meta=(ClampMin="80.0", ClampMax="1000.0"))
+    float OrganicTreeSpacing = 190.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Organic", meta=(ClampMin="0.0", ClampMax="1.0"))
+    float OrganicDenseForestAcceptance = 0.92f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Organic", meta=(ClampMin="0.0", ClampMax="1.0"))
+    float OrganicLightForestAcceptance = 0.52f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Organic", meta=(ClampMin="1.0", ClampMax="30.0"))
+    float OrganicAttemptMultiplier = 7.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Organic", meta=(ClampMin="0.0", ClampMax="1.0"))
+    float OrganicBushChanceNearTree = 0.42f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Organic", meta=(ClampMin="0.0", ClampMax="1.0"))
+    float OrganicRockChanceNearTree = 0.10f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Organic", meta=(ClampMin="20.0", ClampMax="1000.0"))
+    float OrganicCompanionRadius = 150.0f;
 };
