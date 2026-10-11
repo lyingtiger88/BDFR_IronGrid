@@ -111,7 +111,7 @@ void AIronGridWorldBuilder::BuildBiomeMap()
 
     FRandomStream RandomStream(Seed);
 
-    TArray<FVector2D> ClearingCenters;
+    GeneratedClearingCenters.Reset();
     const int32 ClearingTargetCount =
         EnvironmentProfile
             ? EnvironmentProfile->ClearingCount
@@ -119,7 +119,7 @@ void AIronGridWorldBuilder::BuildBiomeMap()
 
     for (int32 Index = 0; Index < ClearingTargetCount; ++Index)
     {
-        ClearingCenters.Add(
+        GeneratedClearingCenters.Add(
             FVector2D(
                 RandomStream.FRandRange(-HalfSize.X * 0.80f, HalfSize.X * 0.80f),
                 RandomStream.FRandRange(-HalfSize.Y * 0.80f, HalfSize.Y * 0.80f)));
@@ -166,7 +166,7 @@ void AIronGridWorldBuilder::BuildBiomeMap()
                         Cell.WorldLocation,
                         LocalLocation,
                         Cell.Density,
-                        ClearingCenters);
+                        GeneratedClearingCenters);
             }
 
             if (BuilderMode != EIronGridWorldBuilderMode::Auto)
@@ -289,6 +289,241 @@ EIronGridBiomeType AIronGridWorldBuilder::ClassifyAutomaticBiome(
     }
 
     return EIronGridBiomeType::Clearing;
+}
+
+EIronGridBiomeType AIronGridWorldBuilder::ClassifyOrganicPoint(
+    const FVector2D& LocalLocation,
+    float& OutDensity) const
+{
+    const FVector WorldLocation =
+        GetActorLocation() +
+        FVector(LocalLocation.X, LocalLocation.Y, 20.0f);
+
+    return ClassifyAutomaticBiome(
+        WorldLocation,
+        LocalLocation,
+        OutDensity,
+        GeneratedClearingCenters);
+}
+
+bool AIronGridWorldBuilder::IsOrganicPointFarEnough(
+    const FVector2D& Candidate,
+    const TArray<FVector2D>& ExistingPoints,
+    float MinimumSpacing) const
+{
+    const float MinimumSpacingSq =
+        FMath::Square(FMath::Max(MinimumSpacing, 1.0f));
+
+    for (const FVector2D& Existing : ExistingPoints)
+    {
+        if (FVector2D::DistSquared(Candidate, Existing) < MinimumSpacingSq)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void AIronGridWorldBuilder::BuildOrganicEnvironment()
+{
+    if (!EnvironmentPalette || !EnvironmentProfile || !GetWorld())
+    {
+        return;
+    }
+
+    const FVector2D HalfSize = MapSize * 0.5f;
+    FRandomStream RandomStream(Seed ^ 0x5A17C9);
+
+    const float BaseSpacing =
+        FMath::Max(EnvironmentProfile->OrganicTreeSpacing, 80.0f);
+
+    const float MapArea =
+        FMath::Max(MapSize.X * MapSize.Y, 1.0f);
+
+    const int32 TargetTreeCount =
+        FMath::Clamp(
+            FMath::RoundToInt(
+                MapArea /
+                FMath::Square(BaseSpacing) *
+                EnvironmentProfile->ForestDensity *
+                0.42f),
+            32,
+            5000);
+
+    const int32 MaxAttempts =
+        FMath::Max(
+            TargetTreeCount,
+            FMath::RoundToInt(
+                static_cast<float>(TargetTreeCount) *
+                EnvironmentProfile->OrganicAttemptMultiplier));
+
+    TArray<FVector2D> AcceptedTreePoints;
+    AcceptedTreePoints.Reserve(TargetTreeCount);
+
+    int32 SpawnedTrees = 0;
+    int32 SpawnedBushes = 0;
+    int32 SpawnedRocks = 0;
+
+    for (int32 Attempt = 0;
+         Attempt < MaxAttempts && AcceptedTreePoints.Num() < TargetTreeCount;
+         ++Attempt)
+    {
+        const FVector2D LocalPoint(
+            RandomStream.FRandRange(-HalfSize.X, HalfSize.X),
+            RandomStream.FRandRange(-HalfSize.Y, HalfSize.Y));
+
+        float Density = 0.0f;
+        const EIronGridBiomeType Biome =
+            ClassifyOrganicPoint(LocalPoint, Density);
+
+        const bool bDense =
+            Biome == EIronGridBiomeType::DenseForest;
+
+        const bool bLight =
+            Biome == EIronGridBiomeType::LightForest;
+
+        if (!bDense && !bLight)
+        {
+            continue;
+        }
+
+        const float Acceptance =
+            bDense
+                ? EnvironmentProfile->OrganicDenseForestAcceptance
+                : EnvironmentProfile->OrganicLightForestAcceptance;
+
+        const float NoiseAcceptance =
+            FMath::Clamp(
+                Acceptance *
+                FMath::Lerp(0.55f, 1.15f, Density),
+                0.0f,
+                1.0f);
+
+        if (RandomStream.FRand() > NoiseAcceptance)
+        {
+            continue;
+        }
+
+        const float Spacing =
+            bDense
+                ? BaseSpacing
+                : BaseSpacing * 1.35f;
+
+        if (!IsOrganicPointFarEnough(
+                LocalPoint,
+                AcceptedTreePoints,
+                Spacing))
+        {
+            continue;
+        }
+
+        AcceptedTreePoints.Add(LocalPoint);
+
+        const FVector WorldPoint =
+            GetActorLocation() +
+            FVector(LocalPoint.X, LocalPoint.Y, 20.0f);
+
+        const TArray<TObjectPtr<UPaperSprite>>& TreePool =
+            bDense
+                ? EnvironmentPalette->DenseForestTrees
+                : EnvironmentPalette->LightForestTrees;
+
+        if (UPaperSprite* Tree =
+                PickSprite(TreePool, RandomStream))
+        {
+            SpawnSprite(
+                Tree,
+                WorldPoint,
+                RandomStream,
+                bDense ? TEXT("IG_OrganicDenseTree") : TEXT("IG_OrganicLightTree"));
+
+            ++SpawnedTrees;
+        }
+
+        // Companions are placed around accepted tree anchors instead of being
+        // generated from cell centers. This forms natural clusters.
+        if (RandomStream.FRand() <=
+            EnvironmentProfile->OrganicBushChanceNearTree)
+        {
+            if (UPaperSprite* Bush =
+                    PickSprite(EnvironmentPalette->Bushes, RandomStream))
+            {
+                const float Radius =
+                    RandomStream.FRandRange(
+                        BaseSpacing * 0.20f,
+                        EnvironmentProfile->OrganicCompanionRadius);
+
+                const float Angle =
+                    RandomStream.FRandRange(0.0f, 2.0f * PI);
+
+                const FVector CompanionOffset(
+                    FMath::Cos(Angle) * Radius,
+                    FMath::Sin(Angle) * Radius,
+                    1.0f);
+
+                SpawnSprite(
+                    Bush,
+                    WorldPoint + CompanionOffset,
+                    RandomStream,
+                    TEXT("IG_OrganicBush"));
+
+                ++SpawnedBushes;
+            }
+        }
+
+        if (RandomStream.FRand() <=
+            EnvironmentProfile->OrganicRockChanceNearTree)
+        {
+            if (UPaperSprite* Rock =
+                    PickSprite(EnvironmentPalette->Rocks, RandomStream))
+            {
+                const float Radius =
+                    RandomStream.FRandRange(
+                        BaseSpacing * 0.25f,
+                        EnvironmentProfile->OrganicCompanionRadius);
+
+                const float Angle =
+                    RandomStream.FRandRange(0.0f, 2.0f * PI);
+
+                const FVector CompanionOffset(
+                    FMath::Cos(Angle) * Radius,
+                    FMath::Sin(Angle) * Radius,
+                    0.5f);
+
+                SpawnSprite(
+                    Rock,
+                    WorldPoint + CompanionOffset,
+                    RandomStream,
+                    TEXT("IG_OrganicRock"));
+
+                ++SpawnedRocks;
+            }
+        }
+    }
+
+#if WITH_EDITOR
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(
+            -1,
+            8.0f,
+            FColor::Green,
+            FString::Printf(
+                TEXT("ORGANIC BUILD OK | Trees:%d Bushes:%d Rocks:%d | Ground: Landscape"),
+                SpawnedTrees,
+                SpawnedBushes,
+                SpawnedRocks));
+    }
+#endif
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("IronGrid Organic Build: Trees=%d Bushes=%d Rocks=%d"),
+        SpawnedTrees,
+        SpawnedBushes,
+        SpawnedRocks);
 }
 
 float AIronGridWorldBuilder::SampleForestNoise(
@@ -746,6 +981,21 @@ void AIronGridWorldBuilder::BuildEnvironment()
         RoadAssets,
         WaterAssets);
 
+    if (bUseOrganicEnvironment)
+    {
+        BuildOrganicEnvironment();
+
+        if (bHidePreviewAfterBuild)
+        {
+            if (UWorld* World = GetWorld())
+            {
+                FlushPersistentDebugLines(World);
+            }
+        }
+
+        return;
+    }
+
     int32 SpawnedCount = 0;
     int32 SpawnedGroundCount = 0;
     int32 SpawnedTreeCount = 0;
@@ -834,13 +1084,19 @@ void AIronGridWorldBuilder::BuildEnvironment()
 
         if (Cell.Biome == EIronGridBiomeType::Road)
         {
-            SpawnGround(EnvironmentPalette->RoadGround, TEXT("IG_Road"));
+            if (bSpawnLegacyRoadWaterTiles)
+            {
+                SpawnGround(EnvironmentPalette->RoadGround, TEXT("IG_Road"));
+            }
             continue;
         }
 
         if (Cell.Biome == EIronGridBiomeType::Water)
         {
-            SpawnGround(EnvironmentPalette->WaterGround, TEXT("IG_Water"));
+            if (bSpawnLegacyRoadWaterTiles)
+            {
+                SpawnGround(EnvironmentPalette->WaterGround, TEXT("IG_Water"));
+            }
             continue;
         }
 
@@ -860,10 +1116,13 @@ void AIronGridWorldBuilder::BuildEnvironment()
 
         if (Cell.Biome == EIronGridBiomeType::Clearing)
         {
-            SpawnGround(
-                EnvironmentPalette->ClearingGround,
-                TEXT("IG_Clearing"),
-                ClearingGroundTokens);
+            if (bSpawnLegacyGroundTiles)
+            {
+                SpawnGround(
+                    EnvironmentPalette->ClearingGround,
+                    TEXT("IG_Clearing"),
+                    ClearingGroundTokens);
+            }
 
             if (RandomStream.FRand() <= EnvironmentPalette->RockChancePerCell)
             {
@@ -888,10 +1147,13 @@ void AIronGridWorldBuilder::BuildEnvironment()
             continue;
         }
 
-        SpawnGround(
-            EnvironmentPalette->ClearingGround,
-            TEXT("IG_ForestBase"),
-            ForestGroundTokens);
+        if (bSpawnLegacyGroundTiles)
+        {
+            SpawnGround(
+                EnvironmentPalette->ClearingGround,
+                TEXT("IG_ForestBase"),
+                ForestGroundTokens);
+        }
 
         const bool bDense =
             Cell.Biome == EIronGridBiomeType::DenseForest;
