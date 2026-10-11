@@ -67,6 +67,21 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder")
     TObjectPtr<UIronGridEnvironmentPalette> EnvironmentPalette;
 
+    // Production default: keep the planning grid hidden and use it only for
+    // classification/validation. The visible environment is scattered in
+    // continuous world space over the existing Landscape.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder|Organic")
+    bool bUseOrganicEnvironment = true;
+
+    // Legacy tile-per-cell ground remains available only for debugging.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder|Organic")
+    bool bSpawnLegacyGroundTiles = false;
+
+    // Road/water cell art is intentionally disabled in organic mode until the
+    // spline path renderer is active. This prevents square road/river islands.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder|Organic")
+    bool bSpawnLegacyRoadWaterTiles = false;
+
     // Convenience fallback for the standard project assets. Explicit actor
     // assignments still take priority.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder|Auto Setup")
@@ -95,6 +110,9 @@ public:
     UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="IronGrid|World Builder|Runtime")
     TArray<FIronGridBiomeCell> GeneratedCells;
 
+    UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="IronGrid|World Builder|Runtime")
+    TArray<FVector2D> GeneratedClearingCenters;
+
 protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|World Builder")
     TObjectPtr<UBoxComponent> MapBounds;
@@ -103,6 +121,14 @@ private:
     void UpdateBounds();
     void DrawPreview();
     void BuildBiomeMap();
+    void BuildOrganicEnvironment();
+    bool IsOrganicPointFarEnough(
+        const FVector2D& Candidate,
+        const TArray<FVector2D>& ExistingPoints,
+        float MinimumSpacing) const;
+    EIronGridBiomeType ClassifyOrganicPoint(
+        const FVector2D& LocalLocation,
+        float& OutDensity) const;
 
     EIronGridBiomeType ClassifyAutomaticBiome(
         const FVector& WorldLocation,
