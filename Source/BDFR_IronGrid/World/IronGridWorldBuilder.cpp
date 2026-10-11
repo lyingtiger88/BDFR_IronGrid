@@ -772,7 +772,8 @@ void AIronGridWorldBuilder::ClearGeneratedEnvironment()
         AIronGridGeneratedSpriteActor* Actor = *It;
 
         if (Actor &&
-            Actor->ActorHasTag(TEXT("IronGridGeneratedEnvironment")))
+            Actor->ActorHasTag(TEXT("IronGridGeneratedEnvironment")) &&
+            Actor->GetOwner() == this)
         {
             ActorsToDestroy.Add(Actor);
         }
