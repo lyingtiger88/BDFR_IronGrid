@@ -81,6 +81,10 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Ground")
     float GroundSpriteScale = 1.0f;
 
+    // Slight overlap hides sub-pixel seams between otherwise edge-matched tiles.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Ground", meta=(ClampMin="1.0", ClampMax="1.10"))
+    float GroundTileOverlapScale = 1.02f;
+
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Ground")
     FRotator GroundSpriteRotation = FRotator::ZeroRotator;
 
