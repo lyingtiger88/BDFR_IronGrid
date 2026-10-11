@@ -299,11 +299,29 @@ EIronGridBiomeType AIronGridWorldBuilder::ClassifyOrganicPoint(
         GetActorLocation() +
         FVector(LocalLocation.X, LocalLocation.Y, 20.0f);
 
-    return ClassifyAutomaticBiome(
-        WorldLocation,
-        LocalLocation,
-        OutDensity,
-        GeneratedClearingCenters);
+    FIronGridBiomeCell TempCell;
+    TempCell.WorldLocation = WorldLocation;
+    TempCell.Biome =
+        ClassifyAutomaticBiome(
+            WorldLocation,
+            LocalLocation,
+            OutDensity,
+            GeneratedClearingCenters);
+    TempCell.Density = OutDensity;
+
+    if (BuilderMode != EIronGridWorldBuilderMode::Auto)
+    {
+        ApplyZoneOverride(TempCell);
+        OutDensity = TempCell.Density;
+    }
+
+    if (TempCell.bExcluded)
+    {
+        OutDensity = 0.0f;
+        return EIronGridBiomeType::Water;
+    }
+
+    return TempCell.Biome;
 }
 
 bool AIronGridWorldBuilder::IsOrganicPointFarEnough(
@@ -332,11 +350,52 @@ void AIronGridWorldBuilder::BuildOrganicEnvironment()
         return;
     }
 
+    struct FOrganicForestCluster
+    {
+        FVector2D Center = FVector2D::ZeroVector;
+        float Radius = 1000.0f;
+        float Strength = 1.0f;
+    };
+
     const FVector2D HalfSize = MapSize * 0.5f;
     FRandomStream RandomStream(Seed ^ 0x5A17C9);
 
     const float BaseSpacing =
         FMath::Max(EnvironmentProfile->OrganicTreeSpacing, 80.0f);
+
+    const float MinClusterRadius =
+        FMath::Min(
+            EnvironmentProfile->OrganicClusterMinRadius,
+            EnvironmentProfile->OrganicClusterMaxRadius);
+
+    const float MaxClusterRadius =
+        FMath::Max(
+            EnvironmentProfile->OrganicClusterMinRadius,
+            EnvironmentProfile->OrganicClusterMaxRadius);
+
+    TArray<FOrganicForestCluster> Clusters;
+    Clusters.Reserve(EnvironmentProfile->OrganicClusterCount);
+
+    // Macro forest islands. These are deliberately much larger than the hidden
+    // planning cells, so the visible result reads as real forest masses.
+    for (int32 Index = 0; Index < EnvironmentProfile->OrganicClusterCount; ++Index)
+    {
+        FOrganicForestCluster Cluster;
+        Cluster.Center =
+            FVector2D(
+                RandomStream.FRandRange(-HalfSize.X * 0.86f, HalfSize.X * 0.86f),
+                RandomStream.FRandRange(-HalfSize.Y * 0.86f, HalfSize.Y * 0.86f));
+
+        Cluster.Radius =
+            RandomStream.FRandRange(
+                MinClusterRadius,
+                MaxClusterRadius);
+
+        Cluster.Strength =
+            RandomStream.FRandRange(0.82f, 1.18f);
+
+        Clusters.Add(Cluster);
+    }
 
     const float MapArea =
         FMath::Max(MapSize.X * MapSize.Y, 1.0f);
@@ -347,8 +406,8 @@ void AIronGridWorldBuilder::BuildOrganicEnvironment()
                 MapArea /
                 FMath::Square(BaseSpacing) *
                 EnvironmentProfile->ForestDensity *
-                0.42f),
-            32,
+                0.32f),
+            48,
             5000);
 
     const int32 MaxAttempts =
@@ -356,7 +415,8 @@ void AIronGridWorldBuilder::BuildOrganicEnvironment()
             TargetTreeCount,
             FMath::RoundToInt(
                 static_cast<float>(TargetTreeCount) *
-                EnvironmentProfile->OrganicAttemptMultiplier));
+                EnvironmentProfile->OrganicAttemptMultiplier *
+                1.35f));
 
     TArray<FVector2D> AcceptedTreePoints;
     AcceptedTreePoints.Reserve(TargetTreeCount);
@@ -374,41 +434,93 @@ void AIronGridWorldBuilder::BuildOrganicEnvironment()
             RandomStream.FRandRange(-HalfSize.Y, HalfSize.Y));
 
         float Density = 0.0f;
-        const EIronGridBiomeType Biome =
+        const EIronGridBiomeType BaseBiome =
             ClassifyOrganicPoint(LocalPoint, Density);
 
-        const bool bDense =
-            Biome == EIronGridBiomeType::DenseForest;
-
-        const bool bLight =
-            Biome == EIronGridBiomeType::LightForest;
-
-        if (!bDense && !bLight)
+        // Roads, water, manual excluded areas and clearings are true holes in
+        // the forest, not merely lower-density decoration.
+        if (BaseBiome == EIronGridBiomeType::Road ||
+            BaseBiome == EIronGridBiomeType::Water ||
+            BaseBiome == EIronGridBiomeType::Clearing)
         {
             continue;
         }
 
-        const float Acceptance =
+        float ClusterInfluence = 0.0f;
+
+        for (const FOrganicForestCluster& Cluster : Clusters)
+        {
+            const float Distance =
+                FVector2D::Distance(LocalPoint, Cluster.Center);
+
+            if (Distance >= Cluster.Radius)
+            {
+                continue;
+            }
+
+            const float Normalized =
+                1.0f - Distance / FMath::Max(Cluster.Radius, 1.0f);
+
+            // Softer edge gives irregular, feathered forest borders.
+            const float EdgePower =
+                FMath::Lerp(
+                    2.8f,
+                    0.85f,
+                    EnvironmentProfile->OrganicClusterEdgeFalloff);
+
+            const float Influence =
+                FMath::Pow(
+                    FMath::Clamp(Normalized, 0.0f, 1.0f),
+                    EdgePower) *
+                Cluster.Strength;
+
+            ClusterInfluence =
+                FMath::Max(ClusterInfluence, Influence);
+        }
+
+        if (ClusterInfluence <= KINDA_SMALL_NUMBER)
+        {
+            continue;
+        }
+
+        const float DetailNoise =
+            SampleForestNoise(
+                LocalPoint +
+                FVector2D(811.0f, -397.0f));
+
+        const float OrganicScore =
+            FMath::Clamp(
+                ClusterInfluence * 0.72f +
+                Density * 0.18f +
+                DetailNoise * 0.10f,
+                0.0f,
+                1.0f);
+
+        // Strong cluster cores are dense; edges break into sparse woodland.
+        const bool bDense =
+            OrganicScore >= 0.58f;
+
+        const float BaseAcceptance =
             bDense
                 ? EnvironmentProfile->OrganicDenseForestAcceptance
                 : EnvironmentProfile->OrganicLightForestAcceptance;
 
-        const float NoiseAcceptance =
+        const float Acceptance =
             FMath::Clamp(
-                Acceptance *
-                FMath::Lerp(0.55f, 1.15f, Density),
+                BaseAcceptance *
+                FMath::Lerp(0.45f, 1.15f, OrganicScore),
                 0.0f,
                 1.0f);
 
-        if (RandomStream.FRand() > NoiseAcceptance)
+        if (RandomStream.FRand() > Acceptance)
         {
             continue;
         }
 
         const float Spacing =
             bDense
-                ? BaseSpacing
-                : BaseSpacing * 1.35f;
+                ? BaseSpacing * FMath::Lerp(1.00f, 0.72f, OrganicScore)
+                : BaseSpacing * FMath::Lerp(1.55f, 1.15f, OrganicScore);
 
         if (!IsOrganicPointFarEnough(
                 LocalPoint,
@@ -436,22 +548,27 @@ void AIronGridWorldBuilder::BuildOrganicEnvironment()
                 Tree,
                 WorldPoint,
                 RandomStream,
-                bDense ? TEXT("IG_OrganicDenseTree") : TEXT("IG_OrganicLightTree"));
+                bDense ? TEXT("IG_OrganicDenseTree") : TEXT("IG_OrganicLightTree"),
+                EnvironmentProfile->OrganicTreeScaleMultiplier);
 
             ++SpawnedTrees;
         }
 
-        // Companions are placed around accepted tree anchors instead of being
-        // generated from cell centers. This forms natural clusters.
+        // Companion vegetation clusters around tree anchors, which avoids the
+        // "one object every N centimeters" procedural look.
+        const float CompanionChanceBoost =
+            FMath::Lerp(0.70f, 1.35f, OrganicScore);
+
         if (RandomStream.FRand() <=
-            EnvironmentProfile->OrganicBushChanceNearTree)
+            EnvironmentProfile->OrganicBushChanceNearTree *
+            CompanionChanceBoost)
         {
             if (UPaperSprite* Bush =
                     PickSprite(EnvironmentPalette->Bushes, RandomStream))
             {
                 const float Radius =
                     RandomStream.FRandRange(
-                        BaseSpacing * 0.20f,
+                        BaseSpacing * 0.14f,
                         EnvironmentProfile->OrganicCompanionRadius);
 
                 const float Angle =
@@ -466,21 +583,23 @@ void AIronGridWorldBuilder::BuildOrganicEnvironment()
                     Bush,
                     WorldPoint + CompanionOffset,
                     RandomStream,
-                    TEXT("IG_OrganicBush"));
+                    TEXT("IG_OrganicBush"),
+                    EnvironmentProfile->OrganicBushScaleMultiplier);
 
                 ++SpawnedBushes;
             }
         }
 
         if (RandomStream.FRand() <=
-            EnvironmentProfile->OrganicRockChanceNearTree)
+            EnvironmentProfile->OrganicRockChanceNearTree *
+            FMath::Lerp(0.75f, 1.15f, OrganicScore))
         {
             if (UPaperSprite* Rock =
                     PickSprite(EnvironmentPalette->Rocks, RandomStream))
             {
                 const float Radius =
                     RandomStream.FRandRange(
-                        BaseSpacing * 0.25f,
+                        BaseSpacing * 0.20f,
                         EnvironmentProfile->OrganicCompanionRadius);
 
                 const float Angle =
@@ -495,7 +614,8 @@ void AIronGridWorldBuilder::BuildOrganicEnvironment()
                     Rock,
                     WorldPoint + CompanionOffset,
                     RandomStream,
-                    TEXT("IG_OrganicRock"));
+                    TEXT("IG_OrganicRock"),
+                    EnvironmentProfile->OrganicRockScaleMultiplier);
 
                 ++SpawnedRocks;
             }
@@ -510,7 +630,8 @@ void AIronGridWorldBuilder::BuildOrganicEnvironment()
             8.0f,
             FColor::Green,
             FString::Printf(
-                TEXT("ORGANIC BUILD OK | Trees:%d Bushes:%d Rocks:%d | Ground: Landscape"),
+                TEXT("ORGANIC FOREST | Clusters:%d Trees:%d Bushes:%d Rocks:%d"),
+                Clusters.Num(),
                 SpawnedTrees,
                 SpawnedBushes,
                 SpawnedRocks));
@@ -520,7 +641,8 @@ void AIronGridWorldBuilder::BuildOrganicEnvironment()
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("IronGrid Organic Build: Trees=%d Bushes=%d Rocks=%d"),
+        TEXT("IronGrid Organic Forest: Clusters=%d Trees=%d Bushes=%d Rocks=%d"),
+        Clusters.Num(),
         SpawnedTrees,
         SpawnedBushes,
         SpawnedRocks);
@@ -825,7 +947,8 @@ void AIronGridWorldBuilder::SpawnSprite(
     UPaperSprite* Sprite,
     const FVector& Location,
     FRandomStream& RandomStream,
-    FName LayerTag)
+    FName LayerTag,
+    float AdditionalScaleMultiplier)
 {
     if (!Sprite || !GetWorld() || !EnvironmentPalette)
     {
@@ -861,7 +984,8 @@ void AIronGridWorldBuilder::SpawnSprite(
 
     const float Scale =
         RandomStream.FRandRange(MinScale, MaxScale) *
-        EnvironmentPalette->GeneratedSpriteScaleMultiplier;
+        EnvironmentPalette->GeneratedSpriteScaleMultiplier *
+        FMath::Max(AdditionalScaleMultiplier, 0.01f);
 
     FRotator Rotation = EnvironmentPalette->SpriteRotation;
 
