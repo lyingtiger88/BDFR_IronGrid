@@ -74,4 +74,25 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Organic", meta=(ClampMin="20.0", ClampMax="1000.0"))
     float OrganicCompanionRadius = 150.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Organic|Clusters", meta=(ClampMin="1", ClampMax="32"))
+    int32 OrganicClusterCount = 8;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Organic|Clusters", meta=(ClampMin="300.0", ClampMax="5000.0"))
+    float OrganicClusterMinRadius = 900.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Organic|Clusters", meta=(ClampMin="300.0", ClampMax="5000.0"))
+    float OrganicClusterMaxRadius = 2200.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Organic|Clusters", meta=(ClampMin="0.0", ClampMax="1.0"))
+    float OrganicClusterEdgeFalloff = 0.60f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Organic|Scale", meta=(ClampMin="0.1", ClampMax="4.0"))
+    float OrganicTreeScaleMultiplier = 1.45f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Organic|Scale", meta=(ClampMin="0.1", ClampMax="4.0"))
+    float OrganicBushScaleMultiplier = 0.85f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Organic|Scale", meta=(ClampMin="0.1", ClampMax="4.0"))
+    float OrganicRockScaleMultiplier = 0.80f;
 };
