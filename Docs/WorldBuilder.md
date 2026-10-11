@@ -32,6 +32,7 @@ Forest shapes use layered Perlin noise. Road and river paths are deterministic m
 - Clear Preview
 - Randomize Seed
 - Validate Builder
+- Validate Gameplay
 
 ## Environment Profile
 
@@ -103,3 +104,16 @@ Higher Priority wins when zones overlap.
 8. Use Clear Generated Environment before rebuilding.
 
 The next milestone should replace the prototype road/water cell art with spline-aware connected road/river pieces and add tank traversability validation.
+
+
+## Gameplay validation
+
+`Validate Gameplay` runs a connectivity pass over the generated planning map.
+
+Current rules:
+
+- Water = blocked
+- Excluded manual zones = blocked
+- Dense Forest / Light Forest / Clearing / Road = traversable
+
+The validator flood-fills the traversable map and reports the reachable percentage. A result below 95% produces a warning so broken or isolated tank areas can be corrected before baking.
