@@ -7,6 +7,7 @@
 #include "EngineUtils.h"
 #include "Math/RandomStream.h"
 #include "PaperSprite.h"
+#include "UObject/SoftObjectPath.h"
 #include "World/IronGridEnvironmentPalette.h"
 #include "World/IronGridEnvironmentProfile.h"
 #include "World/IronGridGeneratedSpriteActor.h"
@@ -47,6 +48,7 @@ void AIronGridWorldBuilder::UpdateBounds()
 
 void AIronGridWorldBuilder::GeneratePreview()
 {
+    ResolveDefaultDataAssetsIfNeeded();
     ClearPreview();
     UpdateBounds();
     BuildBiomeMap();
@@ -482,6 +484,44 @@ void AIronGridWorldBuilder::DrawPreview()
     }
 }
 
+void AIronGridWorldBuilder::ResolveDefaultDataAssetsIfNeeded()
+{
+    if (!bAutoResolveDefaultDataAssets)
+    {
+        return;
+    }
+
+    if (!EnvironmentProfile && DefaultEnvironmentProfilePath.IsValid())
+    {
+        EnvironmentProfile =
+            Cast<UIronGridEnvironmentProfile>(
+                DefaultEnvironmentProfilePath.TryLoad());
+    }
+
+    if (!EnvironmentPalette && DefaultEnvironmentPalettePath.IsValid())
+    {
+        EnvironmentPalette =
+            Cast<UIronGridEnvironmentPalette>(
+                DefaultEnvironmentPalettePath.TryLoad());
+    }
+}
+
+int32 AIronGridWorldBuilder::CountValidSprites(
+    const TArray<TObjectPtr<UPaperSprite>>& Sprites) const
+{
+    int32 Count = 0;
+
+    for (UPaperSprite* Sprite : Sprites)
+    {
+        if (IsValid(Sprite))
+        {
+            ++Count;
+        }
+    }
+
+    return Count;
+}
+
 UPaperSprite* AIronGridWorldBuilder::PickSprite(
     const TArray<TObjectPtr<UPaperSprite>>& Sprites,
     FRandomStream& RandomStream) const
@@ -491,10 +531,24 @@ UPaperSprite* AIronGridWorldBuilder::PickSprite(
         return nullptr;
     }
 
-    const int32 Index =
+    const int32 StartIndex =
         RandomStream.RandRange(0, Sprites.Num() - 1);
 
-    return Sprites[Index];
+    // Arrays edited in the Data Asset can contain empty slots. Walk from the
+    // deterministic random start until a valid sprite is found instead of
+    // silently failing the spawn.
+    for (int32 Offset = 0; Offset < Sprites.Num(); ++Offset)
+    {
+        const int32 Index =
+            (StartIndex + Offset) % Sprites.Num();
+
+        if (IsValid(Sprites[Index]))
+        {
+            return Sprites[Index].Get();
+        }
+    }
+
+    return nullptr;
 }
 
 void AIronGridWorldBuilder::SpawnSprite(
@@ -556,6 +610,7 @@ void AIronGridWorldBuilder::SpawnSprite(
 void AIronGridWorldBuilder::BuildEnvironment()
 {
     ClearGeneratedEnvironment();
+    ResolveDefaultDataAssetsIfNeeded();
 
     if (!EnvironmentPalette)
     {
@@ -566,7 +621,9 @@ void AIronGridWorldBuilder::BuildEnvironment()
                 -1,
                 5.0f,
                 FColor::Red,
-                TEXT("WORLD BUILDER: Assign EnvironmentPalette before Build Environment."));
+                FString::Printf(
+                    TEXT("BUILD FAILED: EnvironmentPalette is NULL. Assign DA_ForestPalette or place it at %s"),
+                    *DefaultEnvironmentPalettePath.ToString()));
         }
 #endif
         return;
@@ -574,7 +631,91 @@ void AIronGridWorldBuilder::BuildEnvironment()
 
     GeneratePreview();
 
+    if (GeneratedCells.IsEmpty())
+    {
+#if WITH_EDITOR
+        if (GEngine)
+        {
+            GEngine->AddOnScreenDebugMessage(
+                -1,
+                8.0f,
+                FColor::Red,
+                TEXT("BUILD FAILED: biome generation produced 0 cells."));
+        }
+#endif
+        UE_LOG(LogTemp, Error, TEXT("IronGrid WorldBuilder: Build failed because GeneratedCells is empty."));
+        return;
+    }
+
+    const int32 DenseAssets = CountValidSprites(EnvironmentPalette->DenseForestTrees);
+    const int32 LightAssets = CountValidSprites(EnvironmentPalette->LightForestTrees);
+    const int32 BushAssets = CountValidSprites(EnvironmentPalette->Bushes);
+    const int32 RockAssets = CountValidSprites(EnvironmentPalette->Rocks);
+    const int32 ClearingAssets = CountValidSprites(EnvironmentPalette->ClearingGround);
+    const int32 RoadAssets = CountValidSprites(EnvironmentPalette->RoadGround);
+    const int32 WaterAssets = CountValidSprites(EnvironmentPalette->WaterGround);
+
+    const int32 TotalValidAssets =
+        DenseAssets + LightAssets + BushAssets + RockAssets +
+        ClearingAssets + RoadAssets + WaterAssets;
+
+    if (TotalValidAssets == 0)
+    {
+#if WITH_EDITOR
+        if (GEngine)
+        {
+            GEngine->AddOnScreenDebugMessage(
+                -1,
+                10.0f,
+                FColor::Red,
+                TEXT("BUILD FAILED: DA_ForestPalette is assigned but all sprite arrays are empty."));
+        }
+#endif
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("IronGrid WorldBuilder: EnvironmentPalette '%s' has 0 valid PaperSprites."),
+            *GetNameSafe(EnvironmentPalette));
+        return;
+    }
+
+#if WITH_EDITOR
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(
+            -1,
+            10.0f,
+            FColor::Cyan,
+            FString::Printf(
+                TEXT("PALETTE OK | Dense:%d Light:%d Bush:%d Rock:%d Ground:%d Road:%d Water:%d"),
+                DenseAssets,
+                LightAssets,
+                BushAssets,
+                RockAssets,
+                ClearingAssets,
+                RoadAssets,
+                WaterAssets));
+    }
+#endif
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("IronGrid WorldBuilder palette '%s': Dense=%d Light=%d Bush=%d Rock=%d Ground=%d Road=%d Water=%d"),
+        *GetNameSafe(EnvironmentPalette),
+        DenseAssets,
+        LightAssets,
+        BushAssets,
+        RockAssets,
+        ClearingAssets,
+        RoadAssets,
+        WaterAssets);
+
     int32 SpawnedCount = 0;
+    int32 SpawnedGroundCount = 0;
+    int32 SpawnedTreeCount = 0;
+    int32 SpawnedBushCount = 0;
+    int32 SpawnedRockCount = 0;
     const float SafeCellSize = FMath::Max(PreviewCellSize, 100.0f);
 
     for (const FIronGridBiomeCell& Cell : GeneratedCells)
@@ -640,6 +781,7 @@ void AIronGridWorldBuilder::BuildEnvironment()
                         Tag);
 
                     ++SpawnedCount;
+                    ++SpawnedGroundCount;
                 }
             }
         };
@@ -679,6 +821,7 @@ void AIronGridWorldBuilder::BuildEnvironment()
                         TEXT("IG_Rock"));
 
                     ++SpawnedCount;
+                    ++SpawnedRockCount;
                 }
             }
 
@@ -730,6 +873,7 @@ void AIronGridWorldBuilder::BuildEnvironment()
                 bDense ? TEXT("IG_DenseTree") : TEXT("IG_LightTree"));
 
             ++SpawnedCount;
+            ++SpawnedTreeCount;
         }
 
         if (RandomStream.FRand() <= EnvironmentPalette->BushChancePerForestCell)
@@ -748,6 +892,7 @@ void AIronGridWorldBuilder::BuildEnvironment()
                     TEXT("IG_Bush"));
 
                 ++SpawnedCount;
+                ++SpawnedBushCount;
             }
         }
 
@@ -767,6 +912,7 @@ void AIronGridWorldBuilder::BuildEnvironment()
                     TEXT("IG_Rock"));
 
                 ++SpawnedCount;
+                ++SpawnedRockCount;
             }
         }
     }
@@ -779,10 +925,24 @@ void AIronGridWorldBuilder::BuildEnvironment()
             6.0f,
             FColor::Green,
             FString::Printf(
-                TEXT("IRON GRID ENVIRONMENT BUILT | Spawned actors: %d"),
-                SpawnedCount));
+                TEXT("BUILD OK | Total:%d Ground:%d Trees:%d Bushes:%d Rocks:%d"),
+                SpawnedCount,
+                SpawnedGroundCount,
+                SpawnedTreeCount,
+                SpawnedBushCount,
+                SpawnedRockCount));
     }
 #endif
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("IronGrid WorldBuilder BUILD OK: Total=%d Ground=%d Trees=%d Bushes=%d Rocks=%d"),
+        SpawnedCount,
+        SpawnedGroundCount,
+        SpawnedTreeCount,
+        SpawnedBushCount,
+        SpawnedRockCount);
 
     if (bHidePreviewAfterBuild)
     {
