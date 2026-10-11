@@ -158,5 +158,6 @@ private:
         UPaperSprite* Sprite,
         const FVector& Location,
         FRandomStream& RandomStream,
-        FName LayerTag);
+        FName LayerTag,
+        float AdditionalScaleMultiplier = 1.0f);
 };
