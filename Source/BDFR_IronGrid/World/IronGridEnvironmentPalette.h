@@ -50,6 +50,11 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Placement", meta=(ClampMin="0.0", ClampMax="1.0"))
     float RockChancePerCell = 0.22f;
 
+    // Global normalization for the generated 256/512px IRON GRID environment pack.
+    // Keeps trees/rocks/bushes in gameplay scale instead of texture-pixel scale.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Placement", meta=(ClampMin="0.05", ClampMax="4.0"))
+    float GeneratedSpriteScaleMultiplier = 0.50f;
+
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Placement", meta=(ClampMin="0.1"))
     float MinSpriteScale = 0.90f;
 
@@ -67,6 +72,11 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Ground")
     bool bAutoScaleGroundToCell = true;
+
+    // Our sliced ground tiles are authored as 256x256 Paper2D sources at the
+    // default 1 pixel = 1 Unreal unit import scale.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Ground", meta=(ClampMin="1.0"))
+    float GroundReferenceWorldSize = 256.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="IronGrid|Ground")
     float GroundSpriteScale = 1.0f;
