@@ -67,6 +67,19 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder")
     TObjectPtr<UIronGridEnvironmentPalette> EnvironmentPalette;
 
+    // Convenience fallback for the standard project assets. Explicit actor
+    // assignments still take priority.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder|Auto Setup")
+    bool bAutoResolveDefaultDataAssets = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder|Auto Setup")
+    FSoftObjectPath DefaultEnvironmentProfilePath =
+        FSoftObjectPath(TEXT("/Game/DataAssets/DA_Environment_Forest.DA_Environment_Forest"));
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder|Auto Setup")
+    FSoftObjectPath DefaultEnvironmentPalettePath =
+        FSoftObjectPath(TEXT("/Game/DataAssets/DA_ForestPalette.DA_ForestPalette"));
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder|Preview")
     bool bShowPreviewGrid = false;
 
@@ -100,6 +113,11 @@ private:
     void ApplyZoneOverride(FIronGridBiomeCell& Cell) const;
     float SampleForestNoise(const FVector2D& LocalLocation) const;
     FColor GetBiomeDebugColor(EIronGridBiomeType Biome) const;
+
+    void ResolveDefaultDataAssetsIfNeeded();
+
+    int32 CountValidSprites(
+        const TArray<TObjectPtr<UPaperSprite>>& Sprites) const;
 
     UPaperSprite* PickSprite(
         const TArray<TObjectPtr<UPaperSprite>>& Sprites,
