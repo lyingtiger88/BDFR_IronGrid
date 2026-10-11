@@ -843,3 +843,170 @@ void AIronGridWorldBuilder::ValidateBuilder()
         Message);
 #endif
 }
+
+
+void AIronGridWorldBuilder::ValidateGameplay()
+{
+    if (GeneratedCells.IsEmpty())
+    {
+        BuildBiomeMap();
+    }
+
+    if (GeneratedCells.IsEmpty())
+    {
+#if WITH_EDITOR
+        if (GEngine)
+        {
+            GEngine->AddOnScreenDebugMessage(
+                -1,
+                5.0f,
+                FColor::Red,
+                TEXT("WORLD VALIDATION FAILED: no biome cells generated."));
+        }
+#endif
+        return;
+    }
+
+    const float SafeCellSize = FMath::Max(PreviewCellSize, 100.0f);
+    const int32 CellsX = FMath::Max(1, FMath::FloorToInt(MapSize.X / SafeCellSize));
+    const int32 CellsY = FMath::Max(1, FMath::FloorToInt(MapSize.Y / SafeCellSize));
+
+    auto IsTraversable = [](const FIronGridBiomeCell& Cell)
+    {
+        return
+            !Cell.bExcluded &&
+            Cell.Biome != EIronGridBiomeType::Water;
+    };
+
+    int32 StartIndex = INDEX_NONE;
+    int32 TraversableCount = 0;
+
+    for (int32 Index = 0; Index < GeneratedCells.Num(); ++Index)
+    {
+        if (IsTraversable(GeneratedCells[Index]))
+        {
+            ++TraversableCount;
+
+            if (StartIndex == INDEX_NONE)
+            {
+                StartIndex = Index;
+            }
+        }
+    }
+
+    if (StartIndex == INDEX_NONE || TraversableCount == 0)
+    {
+#if WITH_EDITOR
+        if (GEngine)
+        {
+            GEngine->AddOnScreenDebugMessage(
+                -1,
+                6.0f,
+                FColor::Red,
+                TEXT("WORLD VALIDATION FAILED: no traversable cells."));
+        }
+#endif
+        return;
+    }
+
+    TArray<bool> Visited;
+    Visited.Init(false, GeneratedCells.Num());
+
+    TArray<int32> Queue;
+    Queue.Reserve(GeneratedCells.Num());
+    Queue.Add(StartIndex);
+    Visited[StartIndex] = true;
+
+    int32 ReadIndex = 0;
+    int32 ReachableCount = 0;
+
+    const int32 DX[4] = { 1, -1, 0, 0 };
+    const int32 DY[4] = { 0, 0, 1, -1 };
+
+    while (ReadIndex < Queue.Num())
+    {
+        const int32 CurrentIndex = Queue[ReadIndex++];
+        ++ReachableCount;
+
+        const FIronGridBiomeCell& CurrentCell =
+            GeneratedCells[CurrentIndex];
+
+        for (int32 Direction = 0; Direction < 4; ++Direction)
+        {
+            const int32 NX = CurrentCell.GridX + DX[Direction];
+            const int32 NY = CurrentCell.GridY + DY[Direction];
+
+            if (NX < 0 || NX >= CellsX || NY < 0 || NY >= CellsY)
+            {
+                continue;
+            }
+
+            const int32 NeighborIndex = NX * CellsY + NY;
+
+            if (!GeneratedCells.IsValidIndex(NeighborIndex) ||
+                Visited[NeighborIndex] ||
+                !IsTraversable(GeneratedCells[NeighborIndex]))
+            {
+                continue;
+            }
+
+            Visited[NeighborIndex] = true;
+            Queue.Add(NeighborIndex);
+        }
+    }
+
+    const float ReachableRatio =
+        TraversableCount > 0
+            ? static_cast<float>(ReachableCount) /
+              static_cast<float>(TraversableCount)
+            : 0.0f;
+
+    int32 RoadCells = 0;
+    int32 WaterCells = 0;
+    int32 ExcludedCells = 0;
+
+    for (const FIronGridBiomeCell& Cell : GeneratedCells)
+    {
+        if (Cell.Biome == EIronGridBiomeType::Road)
+        {
+            ++RoadCells;
+        }
+
+        if (Cell.Biome == EIronGridBiomeType::Water)
+        {
+            ++WaterCells;
+        }
+
+        if (Cell.bExcluded)
+        {
+            ++ExcludedCells;
+        }
+    }
+
+#if WITH_EDITOR
+    if (GEngine)
+    {
+        const bool bHealthyConnectivity =
+            ReachableRatio >= 0.95f;
+
+        const FColor ResultColor =
+            bHealthyConnectivity
+                ? FColor::Green
+                : FColor::Yellow;
+
+        GEngine->AddOnScreenDebugMessage(
+            -1,
+            8.0f,
+            ResultColor,
+            FString::Printf(
+                TEXT("WORLD VALIDATION | Reachable: %.1f%% | Road:%d Water:%d Excluded:%d | %s"),
+                ReachableRatio * 100.0f,
+                RoadCells,
+                WaterCells,
+                ExcludedCells,
+                bHealthyConnectivity
+                    ? TEXT("PASS")
+                    : TEXT("WARNING: disconnected traversable regions")));
+    }
+#endif
+}
