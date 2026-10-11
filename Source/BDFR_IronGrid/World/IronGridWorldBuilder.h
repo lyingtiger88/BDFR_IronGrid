@@ -73,6 +73,9 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder|Preview")
     bool bShowBiomePoints = true;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder|Preview")
+    bool bHidePreviewAfterBuild = true;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder|Preview", meta=(ClampMin="1.0", ClampMax="100.0"))
     float SamplePointSize = 18.0f;
 
