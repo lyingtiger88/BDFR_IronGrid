@@ -46,6 +46,9 @@ public:
     UFUNCTION(CallInEditor, BlueprintCallable, Category="IronGrid|World Builder")
     void ValidateBuilder();
 
+    UFUNCTION(CallInEditor, BlueprintCallable, Category="IronGrid|World Builder")
+    void ValidateGameplay();
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder")
     EIronGridWorldBuilderMode BuilderMode = EIronGridWorldBuilderMode::Hybrid;
 
