@@ -2,10 +2,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "World/IronGridWorldTypes.h"
 #include "IronGridWorldBuilder.generated.h"
 
 class UBoxComponent;
 class UIronGridEnvironmentProfile;
+class UIronGridEnvironmentPalette;
+class UPaperSprite;
 
 UENUM(BlueprintType)
 enum class EIronGridWorldBuilderMode : uint8
@@ -27,6 +30,12 @@ public:
 
     UFUNCTION(CallInEditor, BlueprintCallable, Category="IronGrid|World Builder")
     void GeneratePreview();
+
+    UFUNCTION(CallInEditor, BlueprintCallable, Category="IronGrid|World Builder")
+    void BuildEnvironment();
+
+    UFUNCTION(CallInEditor, BlueprintCallable, Category="IronGrid|World Builder")
+    void ClearGeneratedEnvironment();
 
     UFUNCTION(CallInEditor, BlueprintCallable, Category="IronGrid|World Builder")
     void ClearPreview();
@@ -52,17 +61,20 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder")
     TObjectPtr<UIronGridEnvironmentProfile> EnvironmentProfile;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder|Preview")
-    bool bShowPreviewGrid = true;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder")
+    TObjectPtr<UIronGridEnvironmentPalette> EnvironmentPalette;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder|Preview")
-    bool bShowSamplePoints = true;
+    bool bShowPreviewGrid = false;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder|Preview")
+    bool bShowBiomePoints = true;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="IronGrid|World Builder|Preview", meta=(ClampMin="1.0", ClampMax="100.0"))
-    float SamplePointSize = 12.0f;
+    float SamplePointSize = 18.0f;
 
     UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="IronGrid|World Builder|Runtime")
-    TArray<FVector> GeneratedSamplePoints;
+    TArray<FIronGridBiomeCell> GeneratedCells;
 
 protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="IronGrid|World Builder")
@@ -71,4 +83,25 @@ protected:
 private:
     void UpdateBounds();
     void DrawPreview();
+    void BuildBiomeMap();
+
+    EIronGridBiomeType ClassifyAutomaticBiome(
+        const FVector& WorldLocation,
+        const FVector2D& LocalLocation,
+        float& OutDensity,
+        const TArray<FVector2D>& ClearingCenters) const;
+
+    void ApplyZoneOverride(FIronGridBiomeCell& Cell) const;
+    float SampleForestNoise(const FVector2D& LocalLocation) const;
+    FColor GetBiomeDebugColor(EIronGridBiomeType Biome) const;
+
+    UPaperSprite* PickSprite(
+        const TArray<TObjectPtr<UPaperSprite>>& Sprites,
+        FRandomStream& RandomStream) const;
+
+    void SpawnSprite(
+        UPaperSprite* Sprite,
+        const FVector& Location,
+        FRandomStream& RandomStream,
+        FName LayerTag);
 };
